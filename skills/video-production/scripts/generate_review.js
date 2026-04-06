@@ -197,6 +197,8 @@ let selected=new Set(${JSON.stringify(Array.from(aiSelected))});
 let aiSelected=new Set(${JSON.stringify(Array.from(aiSelected))});
 let curIdx=-1,lastDragIdx=-1,isDragging=false;
 let editingIdx=-1;
+let editBackup=''; // 编辑前备份原文字
+let undoStack=[];
 
 document.getElementById('videoInput').addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
@@ -228,8 +230,32 @@ function fmt(s){const m=Math.floor(s/60),sec=(s%60).toFixed(2);return String(m).
 function fmt2(s){if(!s||isNaN(s))return'00:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
 function jump(i){if(!subs[i])return;curIdx=i;lastDragIdx=i;v.currentTime=subs[i].start;v.play().catch(()=>{});render();scrollTo(i);}
 function scrollTo(i){const el=subList.querySelector('[data-idx="'+i+'"]');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});}
-function startEdit(idx){editingIdx=idx;render();}
-function saveEdit(idx,newText){if(subs[idx]){subs[idx].text=newText.trim();setStatus('✅ 已保存: "'+subs[idx].text+'"','ok');}editingIdx=-1;render();updateStats();}
+function startEdit(idx){
+  editingIdx=idx;
+  editBackup=subs[idx]?subs[idx].text:'';
+  undoStack.push(JSON.parse(JSON.stringify(subs))); // 每次进入编辑前存一次快照
+  render();
+}
+function saveEdit(idx,newText){
+  if(subs[idx]){
+    subs[idx].text=newText.trim();
+    setStatus('✅ 已保存: "'+subs[idx].text+'"','ok');
+  }
+  editingIdx=-1;
+  render();
+  updateStats();
+}
+function undo(){
+  if(undoStack.length>0){
+    subs=undoStack.pop();
+    editingIdx=-1;
+    render();
+    updateStats();
+    setStatus('↩️ 已撤销 (剩余'+undoStack.length+'步)','ok');
+  }else{
+    setStatus('没有可撤销的了','warn');
+  }
+}
 function splitAtPlayhead(){
   if(curIdx<0||curIdx>=subs.length){setStatus('⚠ 请先播放到要拆分的位置','err');return;}
   const t=v.currentTime;const s=subs[curIdx];
@@ -298,6 +324,7 @@ document.addEventListener('keydown',e=>{
   else if(e.code==='KeyA'&&!e.ctrlKey&&!e.metaKey){selectAll();}
   else if(e.code==='KeyS'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();splitAtPlayhead();}
   else if(e.code==='KeyE'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();const i=curIdx;if(i>=0&&i<subs.length){editingIdx=i;render();setTimeout(()=>{const el=subList.querySelector('[data-idx="'+editingIdx+'"] .sub-text-input');if(el){el.focus();el.select();}},10);}}
+  else if(e.ctrlKey&&e.code==='KeyZ'){e.preventDefault();undo();}
   else if(e.code==='Escape'){if(editingIdx>=0){editingIdx=-1;render();}else{clearAll();}}
 });
 speedSelect.addEventListener('change',()=>{v.playbackRate=parseFloat(speedSelect.value);});

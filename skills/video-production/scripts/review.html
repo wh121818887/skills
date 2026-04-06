@@ -439,6 +439,20 @@ document.getElementById('videoInput').addEventListener('change', (e) => {
 
 // ── 渲染 ──
 let editingIdx = -1; // 当前正在编辑的字幕索引
+let editBackup = ''; // 编辑前备份原文字
+let undoStack = []; // 撤销堆栈
+
+function undo() {
+  if (undoStack.length > 0) {
+    subs = undoStack.pop();
+    editingIdx = -1;
+    render();
+    updateStats();
+    setStatus('↩️ 已撤销 (剩余' + undoStack.length + '步)', 'ok');
+  } else {
+    setStatus('没有可撤销的了', 'warn');
+  }
+}
 
 function render() {
   cnt.textContent = `(${subs.length})`;
@@ -476,6 +490,8 @@ function render() {
 // ── 字幕文本编辑 ──
 function startEdit(idx) {
   editingIdx = idx;
+  editBackup = subs[idx] ? subs[idx].text : '';
+  undoStack.push(JSON.parse(JSON.stringify(subs))); // 每次进入编辑前存一次快照
   render();
 }
 
@@ -786,8 +802,16 @@ document.addEventListener('keydown', (e) => {
     }
   }
   else if (e.code === 'Escape') {
-    clearAll();
-    editingIdx = -1;
+    if (editingIdx >= 0) {
+      editingIdx = -1;
+      render();
+    } else {
+      clearAll();
+    }
+  }
+  else if (e.ctrlKey && e.code === 'KeyZ') {
+    e.preventDefault();
+    undo();
   }
 });
 
