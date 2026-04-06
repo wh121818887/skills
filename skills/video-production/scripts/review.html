@@ -194,11 +194,25 @@
       padding-top: 2px;
       line-height: 1.5;
     }
-    .sub-text { flex: 1; word-break: break-all; line-height: 1.6; }
     .subtitle-item.selected .sub-text {
       text-decoration: line-through;
       color: #f44336;
     }
+    .sub-text-input {
+      background: #1e3a1e;
+      border: 1px solid #4CAF50;
+      color: #fff;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-size: 13px;
+      font-family: inherit;
+      width: 70%;
+      outline: none;
+    }
+    .sub-text { flex: 1; word-break: break-all; line-height: 1.6; cursor: text; }
+    .sub-text:hover { background: rgba(76,175,80,0.15); border-radius: 2px; }
+    .sub-time { cursor: pointer; }
+    .sub-time:hover { color: #4CAF50; }
     .drag-select-hint {
       position: fixed;
       pointer-events: none;
@@ -279,8 +293,9 @@
 <div class="header">
   <h1>🎬 字幕审核</h1>
   <span class="tag">红华管家 v3</span>
-  <span class="tag new">Shift+拖动批量选中</span>
-  <span class="tag new">播放跳过已选</span>
+  <span class="tag new">点击字幕文字=编辑</span>
+  <span class="tag new">S键=拆分字幕</span>
+  <span class="tag new">Shift+拖动=批量选中</span>
   <div class="file-input-wrap" style="margin-left:auto">
     <label for="videoInput">📹 视频</label>
     <input type="file" id="videoInput" accept="video/*">
@@ -314,10 +329,11 @@
       <button class="btn btn-secondary" onclick="invertAll()">🔄 反选</button>
       <button class="btn btn-danger" onclick="clearAll()">🗑 清空</button>
       <button class="btn btn-primary" onclick="copyDeleteList()">📋 复制删除</button>
+      <button class="btn btn-warning" onclick="splitAtPlayhead()" title="快捷键 S">✂️ 拆分</button>
       <button class="skip-badge" id="skipBtn" onclick="toggleSkip()" title="播放时自动跳过已选片段">⏭ 跳过</button>
       <span class="time-display" id="td">00:00 / 00:00</span>
     </div>
-    <div class="status-bar" id="statusBar">就绪 · 单击=跳转 | 双击=选中 | Shift+拖动=批量选中</div>
+    <div class="status-bar" id="statusBar">就绪 · 单击=跳转 | 双击=选中 | 点击文字=编辑 | S=拆分</div>
   </div>
 
   <div class="subtitle-panel">
@@ -419,6 +435,8 @@ document.getElementById('videoInput').addEventListener('change', (e) => {
 });
 
 // ── 渲染 ──
+let editingIdx = -1; // 当前正在编辑的字幕索引
+
 function render() {
   cnt.textContent = `(${subs.length})`;
   aiCount.textContent = aiSelected.size;
@@ -433,17 +451,66 @@ function render() {
       curIdx === i ? 'current' : '',
       aiSelected.has(i) ? 'ai-selected' : ''
     ].filter(Boolean).join(' ');
+    // 如果正在编辑这个字幕，显示输入框；否则显示文字
+    const textHtml = (editingIdx === i)
+      ? `<input type="text" class="sub-text-input" value="${esc(s.text||'')}" `
+        + `onblur="saveEdit(${i}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">`
+      : `<span class="sub-text" onclick="startEdit(${i})">${esc(s.text||'')}</span>`;
     return `<div class="subtitle-item ${cls}" data-idx="${i}"
       onmousedown="onMouseDown(event,${i})"
       onmousemove="onMouseMove(event,${i})"
       onmouseup="onMouseUp(event,${i})"
       ondblclick="onDblClick(${i})"
-    ><span class="sub-num">${i+1}</span><span class="sub-time">${fmt(s.start)} → ${fmt(s.end)}</span><span class="sub-text">${esc(s.text||'')}</span></div>`;
+    ><span class="sub-num">${i+1}</span><span class="sub-time" title="点击可编辑时间">${fmt(s.start)} → ${fmt(s.end)}</span>${textHtml}</div>`;
   }).join('');
+  // 如果正在编辑，自动聚焦输入框
+  if (editingIdx >= 0) {
+    const inp = subList.querySelector('.sub-text-input');
+    if (inp) { inp.focus(); inp.select(); }
+  }
 }
 
-function esc(s) {
-  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+// ── 字幕文本编辑 ──
+function startEdit(idx) {
+  editingIdx = idx;
+  render();
+}
+
+function saveEdit(idx, newText) {
+  if (subs[idx]) {
+    subs[idx].text = newText.trim();
+    setStatus(`✅ 已保存: "${subs[idx].text}"`, 'ok');
+  }
+  editingIdx = -1;
+  render();
+  updateStats();
+}
+
+// ── 字幕拆分（在当前位置） ──
+function splitAtPlayhead() {
+  if (curIdx < 0 || curIdx >= subs.length) {
+    setStatus('⚠ 请先播放到要拆分的位置', 'err');
+    return;
+  }
+  const t = v.currentTime;
+  const s = subs[curIdx];
+  // 检查播放头是否在当前字幕范围内
+  if (t <= s.start || t >= s.end) {
+    setStatus(`⚠ 播放头 ${fmt(t)} 不在字幕 ${curIdx+1} 范围内 [${fmt(s.start)}-${fmt(s.end)}]`, 'err');
+    return;
+  }
+  // 在播放头位置拆分
+  const newSub = {
+    start: +t.toFixed(3),
+    end: +s.end.toFixed(3),
+    text: s.text
+  };
+  s.end = +t.toFixed(3);
+  // 插入新字幕到当前位置后面
+  subs.splice(curIdx + 1, 0, newSub);
+  setStatus(`✅ 已拆分字幕 ${curIdx+1}，新字幕在 ${fmt(t)} 处断开`, 'ok');
+  render();
+  updateStats();
 }
 
 function fmt(s) {
@@ -697,8 +764,14 @@ document.addEventListener('keydown', (e) => {
     // 'A' key = 全选
     selectAll();
   }
+  else if (e.code === 'KeyS' && !e.ctrlKey && !e.metaKey) {
+    // 'S' key = 在播放头位置拆分当前字幕
+    e.preventDefault();
+    splitAtPlayhead();
+  }
   else if (e.code === 'Escape') {
     clearAll();
+    editingIdx = -1;
   }
 });
 
