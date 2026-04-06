@@ -24,7 +24,7 @@ description: 口播视频制作完整流程。从原始素材到带字幕成品�
 ## 流程概览
 
 ```
-素材检查 → 音频提取 → 音频清理 → 音频拼接 → Whisper转写 → 字幕断句 → 口播审核 → 字幕校验 → 视频合成 → 封面制作
+素材检查 → 竖屏裁剪 → 视频拼接 → 音频提取 → 音频清理 → 音频拼接 → Whisper转写 → 字幕断句 → 口播审核 → 字幕校验 → 视频合成 → 封面制作
 ```
 
 对比 v2 新增：
@@ -73,7 +73,73 @@ output/
 
 ---
 
-### 步骤2：音频提取
+### 步骤2：竖屏裁剪（重要！）
+
+**目的**：将横屏素材裁剪为竖屏9:16，或将已竖屏素材缩放至统一分辨率。
+
+**裁剪参数公式**：
+```
+crop=1080:1920:X_offset:Y_offset
+     宽   高   X偏    Y偏
+X偏 = (原片宽度 - 1080) / 2  （人物居中时）
+Y偏 = 根据人物上下位置调整
+```
+
+**⚠️ 必须保留音频！** 错误用法：`-an`（不要音频）会导致拼接后无音轨，无法转写。
+
+```bash
+# ✅ 正确：保留音频
+ffmpeg -y -i input.mp4 -t {时长+0.5} \
+  -vf "crop=1080:1920:420:0,scale=1080:1920" \
+  -c:v libx264 -preset fast -c:a aac -b:a 128k \
+  output_portrait.mp4
+
+# ❌ 错误：-an 会丢失音轨！
+ffmpeg -y -i input.mp4 -vf "crop=1080:1920:420:0" -c:v libx264 -an output.mp4
+```
+
+**每段结尾多留0.5秒buffer**：防止最后一个字被截断。
+```bash
+# 原片12秒 → 裁剪时指定 12.5秒
+-t 12.5  # 不是 -t 12
+```
+
+**验证裁剪结果**：
+```bash
+ffprobe -show_entries stream=width,height -of default=noprint_wrappers=1 input_portrait.mp4
+# 应输出：width=1080 height=1920
+```
+
+**判断裁剪位置的简单方法**（截帧分析）：
+1. 截取关键帧：`ffmpeg -ss 2 -i input.mp4 -frames:v 1 preview.jpg`
+2. 用image工具分析：人物在左/中/右？头部是否在画面上1/3？
+3. X偏 = (1920-1080)/2 = 420（人物居中）
+4. Y偏一般 = 0（从头裁），如果人物站得靠下则Y偏 > 0
+
+---
+
+### 步骤3：视频拼接
+
+```bash
+# 创建文件列表
+cat > list.txt << 'EOF'
+file '/path/to/L1_portrait.mp4'
+file '/path/to/L2_portrait.mp4'
+EOF
+
+# 拼接（流复制，不重新编码）
+ffmpeg -y -f concat -safe 0 -i list.txt -c copy output_combined.mp4
+```
+
+**验证**：
+```bash
+ffprobe -show_entries format=duration -of default=noprint_wrappers=1 input.mp4
+# 总时长 ≈ 各段时长之和
+```
+
+---
+
+### 步骤4：音频提取
 
 ```bash
 ffmpeg -i input.mp4 -vn -acodec pcm_s16le -ar 16000 -ac 1 output.wav
@@ -86,9 +152,13 @@ ffmpeg -i input.mp4 -vn -acodec pcm_s16le -ar 16000 -ac 1 output.wav
 
 **多段分别提取**：`audio/raw_L1.wav`、`audio/raw_L2.wav`
 
+**⚠️ 如果视频无音轨**（可能因为裁剪时用了 `-an`）：
+1. 检查原片是否有音轨：`ffmpeg -i input.mp4 2>&1 | grep Stream`
+2. 有音轨但拼接后无音轨 → 重做视频拼接步骤（不要用 `-an`）
+
 ---
 
-### 步骤3：音频清理（关键！）
+### 步骤5：音频清理（关键！）
 
 **原则：先逐条处理，再拼装。绝对不能先拼再处理！**
 
@@ -112,7 +182,7 @@ L2: 删0.50-15.94s → 保留0.00-0.50s + 15.94s-end
 
 ---
 
-### 步骤4：音频拼接
+### 步骤6：音频拼接
 
 ```python
 from pydub import AudioSegment
@@ -129,7 +199,7 @@ combined.export("combined.wav", format="wav")
 
 ---
 
-### 步骤5：Whisper字幕生成
+### 步骤7：Whisper字幕生成
 
 ```python
 from faster_whisper import WhisperModel
@@ -163,7 +233,7 @@ wt = model.transcribe_word_level_timing(
 
 ---
 
-### 步骤6：字幕断句
+### 步骤8：字幕断句
 
 **断句规则（整合videocut-skills的7条优先级规则）**：
 
@@ -202,7 +272,7 @@ wt = model.transcribe_word_level_timing(
 
 ---
 
-### 步骤7：口播审核（借鉴videocut-skills review.html）
+### 步骤9：口播审核（借鉴videocut-skills review.html）
 
 **生成审核网页**：
 ```bash
@@ -253,7 +323,7 @@ wavesurfer.on('timeupdate', (t) => {
 
 ---
 
-### 步骤8：字幕校验（借鉴videocut-skills subtitle_server.js）
+### 步骤10：字幕校验（借鉴videocut-skills subtitle_server.js）
 
 **字幕审核网页功能**：
 - 左侧视频播放，右侧字幕列表
@@ -321,7 +391,7 @@ Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对�
 
 ---
 
-### 步骤9：视频合成
+### 步骤11：视频合成
 
 **字幕滤镜参数（竖屏1080x1920，已验证）**：
 
@@ -415,7 +485,7 @@ function detectEncoder() {
 
 ---
 
-### 步骤10：封面制作
+### 步骤12：封面制作
 
 **方案A：从视频截帧**
 ```bash
@@ -506,12 +576,13 @@ TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板�
 
 **✅ 正确做法**：
 ```markdown
-## 步骤8：字幕校验
+## 步骤10：字幕校验
 （把buffer扩展规则整合到正文）
 
 ## 反馈记录
-### 2026-04-06
-- 字幕时间轴偏紧，漏扩展buffer导致尾音不完整
+### 2026-04-07
+- **竖屏裁剪必须保留音频**：不能用 `-an`，否则拼接后无音轨无法转写
+- 结尾必须多留0.5s buffer：防止最后一个字被截断
 ```
 
 ---
