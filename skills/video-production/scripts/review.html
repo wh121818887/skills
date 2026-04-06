@@ -504,6 +504,10 @@ function startEdit(idx) {
   editBackup = subs[idx] ? subs[idx].text : '';
   undoStack.push(JSON.parse(JSON.stringify(subs))); // 每次进入编辑前存一次快照
   render();
+  setTimeout(() => {
+    const el = subList.querySelector('[data-idx="' + editingIdx + '"] .sub-text-input');
+    if (el) { el.focus(); const len = el.value.length; el.setSelectionRange(len, len); }
+  }, 10);
 }
 
 function saveEdit(idx, newText) {
