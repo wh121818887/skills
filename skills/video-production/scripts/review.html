@@ -13,24 +13,33 @@
       height: 100vh;
       display: flex;
       flex-direction: column;
+      user-select: none;
     }
     .header {
       background: #252525;
-      padding: 12px 20px;
+      padding: 10px 20px;
       border-bottom: 1px solid #333;
       display: flex;
       align-items: center;
       gap: 15px;
       flex-wrap: wrap;
+      min-height: 50px;
     }
-    .header h1 { font-size: 16px; color: #fff; }
-    .header .subtitle { font-size: 13px; color: #888; }
+    .header h1 { font-size: 15px; color: #fff; }
+    .header .tag {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 3px;
+      background: #333;
+      color: #888;
+    }
+    .header .tag.new { background: #1a3a1a; color: #4CAF50; }
     .main { flex: 1; display: flex; overflow: hidden; }
     .video-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 15px;
+      padding: 12px;
       gap: 10px;
       min-width: 0;
     }
@@ -50,48 +59,59 @@
       display: block;
     }
     .no-video {
-      color: #555;
+      color: #444;
       font-size: 14px;
       text-align: center;
       padding: 40px;
+      line-height: 2;
     }
     .controls {
       display: flex;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       flex-wrap: wrap;
     }
     .btn {
-      padding: 8px 16px;
+      padding: 7px 13px;
       border: none;
       border-radius: 4px;
       cursor: pointer;
       font-size: 13px;
-      transition: background 0.15s;
+      transition: background 0.12s;
+      white-space: nowrap;
     }
     .btn-primary { background: #4CAF50; color: white; }
     .btn-primary:hover { background: #45a049; }
-    .btn-secondary { background: #333; color: #ddd; }
-    .btn-secondary:hover { background: #444; }
-    .btn-danger { background: #f44336; color: white; }
-    .btn-danger:hover { background: #da190b; }
-    .btn-warning { background: #ff9800; color: white; }
-    .btn-warning:hover { background: #e68a00; }
+    .btn-secondary { background: #2e2e2e; color: #ccc; border: 1px solid #444; }
+    .btn-secondary:hover { background: #383838; }
+    .btn-danger { background: #c62828; color: white; }
+    .btn-danger:hover { background: #b71c1c; }
+    .btn-warning { background: #e65100; color: white; }
+    .btn-warning:hover { background: #bf360c; }
     select.speed-select {
-      padding: 8px 10px;
-      background: #333;
+      padding: 7px 10px;
+      background: #2e2e2e;
       color: white;
-      border: none;
+      border: 1px solid #444;
       border-radius: 4px;
       font-size: 13px;
       cursor: pointer;
     }
     .time-display {
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       font-size: 13px;
-      color: #888;
+      color: #777;
       margin-left: auto;
     }
+    .skip-badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      background: #b71c1c;
+      color: white;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .skip-badge:hover { background: #d32f2f; }
     .subtitle-panel {
       width: 420px;
       border-left: 1px solid #333;
@@ -100,23 +120,22 @@
       overflow: hidden;
     }
     .subtitle-header {
-      padding: 12px 15px;
+      padding: 10px 15px;
       background: #252525;
       border-bottom: 1px solid #333;
     }
     .subtitle-header h2 {
-      font-size: 14px;
-      margin-bottom: 8px;
+      font-size: 13px;
+      margin-bottom: 6px;
       display: flex;
       align-items: center;
       gap: 8px;
     }
     .stats {
       font-size: 12px;
-      color: #888;
+      color: #666;
     }
-    .stats .ok { color: #4CAF50; }
-    .stats .sel { color: #ff9800; }
+    .stats b { color: #ff9800; }
     .subtitle-list {
       flex: 1;
       overflow-y: auto;
@@ -124,118 +143,163 @@
       line-height: 1.8;
     }
     .subtitle-item {
-      padding: 8px 15px;
-      border-bottom: 1px solid #252525;
+      padding: 6px 15px;
+      border-bottom: 1px solid #222;
       cursor: pointer;
       display: flex;
-      gap: 10px;
+      gap: 8px;
       align-items: flex-start;
-      transition: background 0.1s;
+      transition: background 0.08s;
+      position: relative;
+    }
+    .subtitle-item::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: transparent;
     }
     .subtitle-item:hover { background: #252525; }
     .subtitle-item.selected {
-      background: #3a1a1a;
-      border-left: 3px solid #f44336;
+      background: #2a1010;
     }
+    .subtitle-item.selected::before { background: #f44336; }
     .subtitle-item.current {
-      background: #1a2a4a;
-      border-left: 3px solid #2196F3;
+      background: #1a1a3a;
+    }
+    .subtitle-item.current::before { background: #2196F3; }
+    .subtitle-item.ai-selected {
+      background: #1a1500;
+    }
+    .subtitle-item.ai-selected::before { background: #ff9800; }
+    .subtitle-item.selected.ai-selected {
+      background: #2a1a00;
+    }
+    .subtitle-item.selected.ai-selected::before { background: #ff5722; }
+    .sub-num {
+      font-size: 11px;
+      color: #444;
+      min-width: 24px;
+      text-align: right;
+      padding-top: 1px;
     }
     .sub-time {
-      font-family: monospace;
-      font-size: 11px;
-      color: #666;
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      color: #555;
       white-space: nowrap;
-      min-width: 85px;
+      min-width: 80px;
       padding-top: 2px;
+      line-height: 1.5;
     }
-    .sub-text {
-      flex: 1;
-      word-break: break-all;
-    }
-    .sub-text mark {
-      background: transparent;
-      color: inherit;
-    }
+    .sub-text { flex: 1; word-break: break-all; line-height: 1.6; }
     .subtitle-item.selected .sub-text {
       text-decoration: line-through;
       color: #f44336;
     }
-    .help-bar {
-      padding: 8px 15px;
-      background: #252525;
-      border-top: 1px solid #333;
-      font-size: 12px;
-      color: #666;
-    }
-    .help-bar span { margin-right: 15px; }
-    .status-bar {
-      padding: 6px 15px;
-      background: #1a3a1a;
-      color: #4CAF50;
-      font-size: 12px;
-    }
-    .status-bar.error { background: #3a1a1a; color: #f44336; }
-    .status-bar.info { background: #1a1a3a; color: #64B5F6; }
-    .file-input-wrap {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .file-input-wrap label {
-      font-size: 13px;
-      cursor: pointer;
-      color: #64B5F6;
-    }
-    .file-input-wrap input[type="file"] { display: none; }
-    .delete-summary {
-      padding: 10px 15px;
-      background: #252525;
-      border-top: 1px solid #333;
-      font-size: 12px;
-      color: #888;
-      max-height: 120px;
-      overflow-y: auto;
-    }
-    .delete-summary pre {
-      font-family: monospace;
+    .drag-select-hint {
+      position: fixed;
+      pointer-events: none;
+      background: rgba(255,152,0,0.15);
+      border: 1px dashed #ff9800;
+      border-radius: 3px;
+      display: none;
       font-size: 11px;
-      color: #aaa;
+      color: #ff9800;
+      padding: 2px 6px;
+    }
+    .help-bar {
+      padding: 6px 15px;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+      font-size: 11px;
+      color: #555;
+    }
+    .help-bar b { color: #888; }
+    .status-bar {
+      padding: 5px 15px;
+      background: #1e1e1e;
+      color: #888;
+      font-size: 12px;
+    }
+    .status-bar.ok { background: #1a2a1a; color: #66bb6a; }
+    .status-bar.err { background: #2a1a1a; color: #ef5350; }
+    .status-bar.info { background: #1a1a2a; color: #64B5F6; }
+    .delete-preview {
+      padding: 8px 15px;
+      background: #1e1e1e;
+      border-top: 1px solid #333;
+      max-height: 100px;
+      overflow-y: auto;
+      font-size: 11px;
+    }
+    .delete-preview pre {
+      font-family: 'Courier New', monospace;
+      color: #888;
       white-space: pre-wrap;
       word-break: break-all;
     }
     .empty-state {
       padding: 40px;
       text-align: center;
-      color: #555;
+      color: #444;
     }
-    .empty-state h3 { font-size: 15px; margin-bottom: 10px; color: #777; }
-    .empty-state p { font-size: 13px; line-height: 1.8; }
+    .legend {
+      display: flex;
+      gap: 12px;
+      margin-top: 4px;
+      font-size: 11px;
+    }
+    .legend-item { display: flex; align-items: center; gap: 4px; }
+    .legend-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 2px;
+    }
+    .legend-dot.ai { background: #ff9800; }
+    .legend-dot.sel { background: #f44336; }
+    .legend-dot.cur { background: #2196F3; }
+    .file-input-wrap {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .file-input-wrap label {
+      font-size: 12px;
+      cursor: pointer;
+      color: #64B5F6;
+    }
+    .file-input-wrap input { display: none; }
   </style>
 </head>
 <body>
 
 <div class="header">
   <h1>🎬 字幕审核</h1>
-  <span class="subtitle">红华管家 · 简化版</span>
-  <div class="file-input-wrap">
-    <label for="videoInput">📹 选择视频</label>
-    <input type="file" id="videoInput" accept="video/mp4,video/quicktime,video/*">
-    <label for="subtitleInput" style="color:#ff9800;">📝 导入字幕JSON</label>
-    <input type="file" id="subtitleInput" accept=".json">
+  <span class="tag">红华管家 v3</span>
+  <span class="tag new">Shift+拖动批量选中</span>
+  <span class="tag new">播放跳过已选</span>
+  <div class="file-input-wrap" style="margin-left:auto">
+    <label for="videoInput">📹 视频</label>
+    <input type="file" id="videoInput" accept="video/*">
+    <label for="subtitleInput" style="color:#ff9800;">📝 字幕JSON</label>
+    <input type="file" id="subtitleInput" accept=".json,.txt">
+    <label for="autoSelectInput" style="color:#ff9800;">🤖 AI预选</label>
+    <input type="file" id="autoSelectInput" accept=".json,.txt">
   </div>
-  <button class="btn btn-secondary" onclick="loadSample()">📋 加载示例数据</button>
 </div>
 
 <div class="main">
   <div class="video-panel">
-    <div class="video-wrap" id="videoWrap">
-      <video id="video" controls></video>
-      <div class="no-video" id="noVideo">请先选择视频文件，或加载示例数据</div>
+    <div class="video-wrap">
+      <video id="v" controls></video>
+      <div class="no-video" id="noVideo">请选择视频文件，或加载示例数据</div>
     </div>
     <div class="controls">
-      <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">▶️ 播放</button>
-      <select class="speed-select" id="speedSelect" onchange="video.playbackRate=parseFloat(this.value)">
+      <button class="btn btn-primary" id="playBtn" onclick="togglePlay()">▶ 播放</button>
+      <select class="speed-select" id="speedSelect">
         <option value="0.5">0.5x</option>
         <option value="0.75">0.75x</option>
         <option value="1" selected>1x</option>
@@ -244,320 +308,455 @@
         <option value="2">2x</option>
         <option value="3">3x</option>
       </select>
-      <button class="btn btn-warning" onclick="selectAll()">☑️ 全选</button>
-      <button class="btn btn-danger" onclick="clearAll()">🗑️ 清空</button>
-      <button class="btn btn-primary" onclick="copyDeleteList()">📋 复制删除列表</button>
-      <span class="time-display" id="timeDisplay">00:00 / 00:00</span>
+      <button class="btn btn-secondary" onclick="jumpSel(-5)">⏪ -5s</button>
+      <button class="btn btn-secondary" onclick="jumpSel(5)">⏩ +5s</button>
+      <button class="btn btn-warning" onclick="selectAll()">☑ 全选</button>
+      <button class="btn btn-secondary" onclick="invertAll()">🔄 反选</button>
+      <button class="btn btn-danger" onclick="clearAll()">🗑 清空</button>
+      <button class="btn btn-primary" onclick="copyDeleteList()">📋 复制删除</button>
+      <button class="skip-badge" id="skipBtn" onclick="toggleSkip()" title="播放时自动跳过已选片段">⏭ 跳过</button>
+      <span class="time-display" id="td">00:00 / 00:00</span>
     </div>
-    <div class="status-bar" id="statusBar">就绪 · 点击字幕跳转播放，双击选中（删除）</div>
+    <div class="status-bar" id="statusBar">就绪 · 单击=跳转 | 双击=选中 | Shift+拖动=批量选中</div>
   </div>
 
   <div class="subtitle-panel">
     <div class="subtitle-header">
-      <h2>字幕列表 <span id="subCount">(0)</span></h2>
+      <h2>字幕列表 <span id="cnt">(0)</span></h2>
       <div class="stats">
-        已选 <span class="sel" id="selCount">0</span> 条 ·
-        总时长 <span id="totalDur">0</span>s ·
-        删除约 <span class="sel" id="delDur">0</span>s
+        已选 <b id="selCount">0</b> 条 ·
+        AI预选 <b id="aiCount">0</b> 条 ·
+        删除约 <b id="delDur">0</b>s
+      </div>
+      <div class="legend">
+        <div class="legend-item"><div class="legend-dot ai"></div>AI预选</div>
+        <div class="legend-item"><div class="legend-dot sel"></div>已选删除</div>
+        <div class="legend-item"><div class="legend-dot cur"></div>当前播放</div>
       </div>
     </div>
-    <div class="subtitle-list" id="subtitleList">
-      <div class="empty-state">
-        <h3>暂无字幕数据</h3>
-        <p>请导入字幕JSON文件<br>或点击"加载示例数据"试用</p>
-      </div>
-    </div>
-    <div class="delete-summary" id="deleteSummary" style="display:none">
-      <strong>删除片段预览：</strong>
-      <pre id="deletePreview"></pre>
+    <div class="subtitle-list" id="subList"></div>
+    <div class="delete-preview" id="delPreview" style="display:none">
+      <pre id="delPre"></pre>
     </div>
     <div class="help-bar">
-      <span>🖱️ 单击=跳转</span>
-      <span>🖱️ 双击=选中/取消</span>
-      <span>⌨️ 空格=播放/暂停</span>
+      <b>🖱单击</b>=跳转 &nbsp;
+      <b>🖱双击</b>=选中 &nbsp;
+      <b>Shift+拖动</b>=批量选中 &nbsp;
+      <b>⌨空格</b>=播放/暂停 &nbsp;
+      <b>←→</b>=跳转1s &nbsp;
+      <b>Shift+←→</b>=跳转5s
     </div>
   </div>
 </div>
 
+<div class="drag-select-hint" id="dragHint">批量选中</div>
+
 <script>
-const video = document.getElementById('video');
+const v = document.getElementById('v');
 const noVideo = document.getElementById('noVideo');
-const subtitleList = document.getElementById('subtitleList');
-const timeDisplay = document.getElementById('timeDisplay');
+const subList = document.getElementById('subList');
+const td = document.getElementById('td');
 const statusBar = document.getElementById('statusBar');
-const subCount = document.getElementById('subCount');
+const cnt = document.getElementById('cnt');
 const selCount = document.getElementById('selCount');
-const totalDur = document.getElementById('totalDur');
+const aiCount = document.getElementById('aiCount');
 const delDur = document.getElementById('delDur');
-const deleteSummary = document.getElementById('deleteSummary');
-const deletePreview = document.getElementById('deletePreview');
+const delPreview = document.getElementById('delPreview');
+const delPre = document.getElementById('delPre');
 const playBtn = document.getElementById('playBtn');
+const speedSelect = document.getElementById('speedSelect');
+const dragHint = document.getElementById('dragHint');
+const skipBtn = document.getElementById('skipBtn');
 
-let subtitles = [];
+let subs = [];
 let selected = new Set();
-let currentIdx = -1;
+let aiSelected = new Set();
+let curIdx = -1;
+let skipEnabled = true;
 
-// --- 加载字幕JSON ---
+// ── 加载字幕JSON ──
 document.getElementById('subtitleInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
   const reader = new FileReader();
   reader.onload = (ev) => {
     try {
-      subtitles = JSON.parse(ev.target.result);
-      if (!Array.isArray(subtitles)) throw new Error('格式错误');
+      subs = JSON.parse(ev.target.result);
+      if (!Array.isArray(subs)) throw new Error('需要数组');
       selected.clear();
-      renderSubtitles();
-      setStatus(`已加载 ${subtitles.length} 条字幕`, 'info');
-    } catch(err) {
-      setStatus('❌ JSON格式错误: ' + err.message, 'error');
-    }
+      curIdx = -1;
+      render();
+      setStatus(`已加载 ${subs.length} 条字幕`, 'info');
+    } catch(err) { setStatus('JSON错误: ' + err.message, 'err'); }
   };
   reader.readAsText(file);
 });
 
-// --- 加载视频 ---
+// ── 加载AI预选 ──
+document.getElementById('autoSelectInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      aiSelected = new Set(Array.isArray(data) ? data : []);
+      render();
+      setStatus(`已加载 ${aiSelected.size} 条AI预选`, 'info');
+    } catch(err) { setStatus('AI预选JSON错误: ' + err.message, 'err'); }
+  };
+  reader.readAsText(file);
+});
+
+// ── 加载视频 ──
 document.getElementById('videoInput').addEventListener('change', (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const url = URL.createObjectURL(file);
-  video.src = url;
+  v.src = URL.createObjectURL(file);
   noVideo.style.display = 'none';
-  video.style.display = 'block';
+  v.style.display = 'block';
   setStatus('视频已加载', 'info');
 });
 
-// --- 渲染字幕列表 ---
-function renderSubtitles() {
-  subCount.textContent = `(${subtitles.length})`;
-  totalDur.textContent = subtitles.length > 0
-    ? (subtitles[subtitles.length-1].end - subtitles[0].start).toFixed(1)
-    : 0;
+// ── 渲染 ──
+function render() {
+  cnt.textContent = `(${subs.length})`;
+  aiCount.textContent = aiSelected.size;
   updateStats();
-
-  if (subtitles.length === 0) {
-    subtitleList.innerHTML = '<div class="empty-state"><h3>暂无字幕</h3></div>';
+  if (!subs.length) {
+    subList.innerHTML = '<div class="empty-state">暂无字幕数据</div>';
     return;
   }
-
-  subtitleList.innerHTML = subtitles.map((s, i) => `
-    <div class="subtitle-item" data-idx="${i}" onclick="onItemClick(${i}, event)" ondblclick="onItemDblClick(${i})">
-      <span class="sub-time">${fmtTime(s.start)} → ${fmtTime(s.end)}</span>
-      <span class="sub-text">${escHtml(s.text || '')}</span>
-    </div>
-  `).join('');
+  subList.innerHTML = subs.map((s, i) => {
+    const cls = [
+      selected.has(i) ? 'selected' : '',
+      curIdx === i ? 'current' : '',
+      aiSelected.has(i) ? 'ai-selected' : ''
+    ].filter(Boolean).join(' ');
+    return `<div class="subtitle-item ${cls}" data-idx="${i}"
+      onmousedown="onMouseDown(event,${i})"
+      onmousemove="onMouseMove(event,${i})"
+      onmouseup="onMouseUp(event,${i})"
+      ondblclick="onDblClick(${i})"
+    ><span class="sub-num">${i+1}</span><span class="sub-time">${fmt(s.start)} → ${fmt(s.end)}</span><span class="sub-text">${esc(s.text||'')}</span></div>`;
+  }).join('');
 }
 
-function escHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+function esc(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-// --- 点击：跳转播放 ---
-function onItemClick(idx, event) {
-  const s = subtitles[idx];
-  if (!s) return;
-  // 阻止双击事件的触发
-  event.stopPropagation();
-  video.currentTime = s.start;
-  video.play().catch(()=>{});
-  highlightCurrent(idx);
+function fmt(s) {
+  const m = Math.floor(s/60);
+  const sec = (s%60).toFixed(2);
+  return String(m).padStart(2,'0')+':'+sec.padStart(5,'0');
 }
 
-// --- 双击：选中/取消 ---
-function onItemDblClick(idx) {
-  if (selected.has(idx)) {
-    selected.delete(idx);
-  } else {
-    selected.add(idx);
+function fmt2(s) {
+  if (!s||isNaN(s)) return '00:00';
+  const m=Math.floor(s/60), sec=Math.floor(s%60);
+  return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');
+}
+
+// ── 点击跳转 ──
+function onMouseDown(e, i) {
+  if (e.button !== 0) return;
+  // 阻止dblclick在mousedown时误触发
+  e.preventDefault();
+}
+
+function onMouseMove(e, i) {
+  // nothing on plain move
+}
+
+function onMouseUp(e, i) {
+  if (e.button !== 0) return;
+  if (e.detail === 0) {
+    // this was a synthetic event from dblclick fallback
+    return;
   }
-  renderSubtitles();
-  updateStats();
-  highlightCurrent(idx);
+  // If shift key is held and we're drag-selecting, handled in drag
+  if (!e.shiftKey) {
+    jump(i);
+  }
 }
 
-function highlightCurrent(idx) {
-  document.querySelectorAll('.subtitle-item').forEach((el, i) => {
-    el.classList.toggle('current', i === idx);
-  });
-  currentIdx = idx;
-  const el = document.querySelector(`.subtitle-item[data-idx="${idx}"]`);
+// ── 双击选中/取消 ──
+function onDblClick(i) {
+  if (selected.has(i)) selected.delete(i);
+  else selected.add(i);
+  render();
+  updateStats();
+}
+
+// ── Shift+拖动批量选中 ──
+let isDragging = false;
+let dragStartIdx = -1;
+let lastDragIdx = -1;
+
+subList.addEventListener('mousedown', (e) => {
+  if (e.button !== 0) return;
+  if (e.target.classList.contains('sub-text') || e.target.classList.contains('sub-time')) {
+    // 点击在文字/时间区域
+    const item = e.target.closest('.subtitle-item');
+    if (!item) return;
+    const idx = parseInt(item.dataset.idx);
+    if (isNaN(idx)) return;
+    if (e.shiftKey) {
+      // Shift+点击：从上次位置到当前位置，批量选中
+      isDragging = true;
+      dragStartIdx = lastDragIdx >= 0 ? lastDragIdx : idx;
+      e.preventDefault();
+      // 清除旧的选择，从dragStart到idx选中
+      if (e.ctrlKey || e.metaKey) {
+        // Ctrl+Shift=追加模式
+      } else {
+        selected.clear();
+      }
+      const from = Math.min(dragStartIdx, idx);
+      const to = Math.max(dragStartIdx, idx);
+      for (let j = from; j <= to; j++) selected.add(j);
+      render();
+      updateStats();
+      // 显示拖动提示
+      dragHint.style.display = 'block';
+      dragHint.style.left = (e.clientX + 5) + 'px';
+      dragHint.style.top = (e.clientY - 20) + 'px';
+      lastDragIdx = idx;
+    } else {
+      // 普通点击 = 跳转
+      jump(idx);
+    }
+  }
+});
+
+subList.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const item = e.target.closest('.subtitle-item');
+  if (!item) return;
+  const idx = parseInt(item.dataset.idx);
+  if (isNaN(idx)) return;
+  const from = Math.min(dragStartIdx, idx);
+  const to = Math.max(dragStartIdx, idx);
+  selected.clear();
+  for (let j = from; j <= to; j++) selected.add(j);
+  render();
+  updateStats();
+  dragHint.style.left = (e.clientX + 5) + 'px';
+  dragHint.style.top = (e.clientY - 20) + 'px';
+  lastDragIdx = idx;
+});
+
+document.addEventListener('mouseup', (e) => {
+  if (isDragging) {
+    isDragging = false;
+    dragStartIdx = -1;
+    dragHint.style.display = 'none';
+  }
+});
+
+// ── 跳转播放 ──
+function jump(i) {
+  if (!subs[i]) return;
+  lastDragIdx = i;
+  curIdx = i;
+  v.currentTime = subs[i].start;
+  v.play().catch(()=>{});
+  render();
+  scrollToIdx(i);
+}
+
+function scrollToIdx(i) {
+  const el = subList.querySelector(`[data-idx="${i}"]`);
   if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
-// --- 时间更新 & 高亮 ---
-video.addEventListener('timeupdate', () => {
-  const t = video.currentTime;
-  const idx = subtitles.findIndex(s => t >= s.start && t < s.end);
-  if (idx >= 0 && idx !== currentIdx) {
-    highlightCurrent(idx);
+// ── 时间更新 & 自动高亮 & 跳过已选 ──
+v.addEventListener('timeupdate', () => {
+  const t = v.currentTime;
+  const i = subs.findIndex(s => t >= s.start && t < s.end);
+  if (i >= 0 && i !== curIdx) {
+    curIdx = i;
+    render();
+    scrollToIdx(i);
   }
-  // 更新时间
-  const dur = video.duration || 0;
-  timeDisplay.textContent = `${fmtTime2(t)} / ${fmtTime2(dur)}`;
-});
-
-video.addEventListener('play', () => playBtn.textContent = '⏸️ 暂停');
-video.addEventListener('pause', () => playBtn.textContent = '▶️ 播放');
-
-// --- 播放控制 ---
-function togglePlay() {
-  if (video.paused) video.play().catch(()=>{});
-  else video.pause();
-}
-
-// --- 全选 ---
-function selectAll() {
-  subtitles.forEach((_, i) => selected.add(i));
-  renderSubtitles();
-  updateStats();
-  setStatus(`已全选 ${selected.size} 条`);
-}
-
-// --- 清空 ---
-function clearAll() {
-  selected.clear();
-  renderSubtitles();
-  updateStats();
-  setStatus('已清空选择');
-}
-
-// --- 更新统计 ---
-function updateStats() {
-  selCount.textContent = selected.size;
-  let del = 0;
-  selected.forEach(i => {
-    const s = subtitles[i];
-    if (s) del += (s.end - s.start);
-  });
-  delDur.textContent = del.toFixed(1);
-  updateDeletePreview();
-}
-
-// --- 删除预览 ---
-function updateDeletePreview() {
-  if (selected.size === 0) {
-    deleteSummary.style.display = 'none';
-    return;
-  }
-  deleteSummary.style.display = 'block';
-  const segments = [];
-  Array.from(selected).sort((a,b)=>a-b).forEach(i => {
-    const s = subtitles[i];
-    if (s) segments.push({ start: s.start, end: s.end });
-  });
-  deletePreview.textContent = JSON.stringify(segments, null, 2);
-}
-
-// --- 复制删除列表 ---
-function copyDeleteList() {
-  if (selected.size === 0) {
-    setStatus('⚠️ 请先选中要删除的字幕', 'info');
-    return;
-  }
-  const segments = [];
-  Array.from(selected).sort((a,b)=>a-b).forEach(i => {
-    const s = subtitles[i];
-    if (s) segments.push({ start: parseFloat(s.start.toFixed(3)), end: parseFloat(s.end.toFixed(3)) });
-  });
-
-  // 合并相邻片段（间隔<0.1s视为相邻）
-  const merged = [];
-  for (const seg of segments) {
-    if (merged.length === 0) {
-      merged.push({...seg});
-    } else {
-      const last = merged[merged.length - 1];
-      if (Math.abs(seg.start - last.end) < 0.1) {
-        last.end = seg.end;
-      } else {
-        merged.push({...seg});
+  // 跳过已选片段
+  if (skipEnabled) {
+    for (const si of Array.from(selected).sort((a,b)=>a-b)) {
+      const s = subs[si];
+      if (s && t >= s.start && t < s.end) {
+        v.currentTime = s.end;
+        return;
       }
     }
   }
+  const dur = v.duration || 0;
+  td.textContent = fmt2(t) + ' / ' + fmt2(dur);
+});
 
-  const json = JSON.stringify(merged, null, 2);
+v.addEventListener('play', () => playBtn.textContent = '⏸ 暂停');
+v.addEventListener('pause', () => playBtn.textContent = '▶ 播放');
+
+// ── 播放控制 ──
+function togglePlay() {
+  if (v.paused) v.play().catch(()=>{});
+  else v.pause();
+}
+
+function toggleSkip() {
+  skipEnabled = !skipEnabled;
+  skipBtn.style.background = skipEnabled ? '#c62828' : '#555';
+  setStatus(skipEnabled ? '⏭ 已开启跳过' : '⏭ 已关闭跳过');
+}
+
+// ── 跳转5s ──
+function jumpSel(delta) {
+  v.currentTime = Math.max(0, Math.min(v.duration || 0, v.currentTime + delta));
+}
+
+// ── 批量操作 ──
+function selectAll() { subs.forEach((_,i) => selected.add(i)); render(); updateStats(); }
+function clearAll() { selected.clear(); render(); updateStats(); }
+function invertAll() {
+  subs.forEach((_,i) => {
+    if (selected.has(i)) selected.delete(i);
+    else selected.add(i);
+  });
+  render();
+  updateStats();
+}
+
+// ── 更新统计 ──
+function updateStats() {
+  selCount.textContent = selected.size;
+  let d = 0;
+  selected.forEach(i => { if(subs[i]) d += subs[i].end - subs[i].start; });
+  delDur.textContent = d.toFixed(1);
+  updateDelPreview();
+}
+
+function updateDelPreview() {
+  if (!selected.size) { delPreview.style.display = 'none'; return; }
+  delPreview.style.display = 'block';
+  const segs = [];
+  Array.from(selected).sort((a,b)=>a-b).forEach(i => {
+    if (subs[i]) segs.push({start: +subs[i].start.toFixed(3), end: +subs[i].end.toFixed(3)});
+  });
+  // 合并相邻
+  const m = [];
+  for (const s of segs) {
+    if (!m.length) { m.push({...s}); continue; }
+    if (Math.abs(s.start - m[m.length-1].end) < 0.1) {
+      m[m.length-1].end = s.end;
+    } else { m.push({...s}); }
+  }
+  delPre.textContent = JSON.stringify(m, null, 2);
+}
+
+// ── 复制删除列表 ──
+function copyDeleteList() {
+  if (!selected.size) { setStatus('⚠ 请先选中字幕', 'err'); return; }
+  const segs = [];
+  Array.from(selected).sort((a,b)=>a-b).forEach(i => {
+    if (subs[i]) segs.push({start: +subs[i].start.toFixed(3), end: +subs[i].end.toFixed(3)});
+  });
+  const m = [];
+  for (const s of segs) {
+    if (!m.length) { m.push({...s}); continue; }
+    if (Math.abs(s.start - m[m.length-1].end) < 0.1) {
+      m[m.length-1].end = s.end;
+    } else { m.push({...s}); }
+  }
+  const json = JSON.stringify(m, null, 2);
   navigator.clipboard.writeText(json).then(() => {
-    setStatus(`✅ 已复制 ${merged.length} 个删除片段（已合并相邻片段）`);
+    setStatus(`✅ 已复制 ${m.length} 个片段（已合并相邻）`, 'ok');
   }).catch(() => {
-    // fallback
     const ta = document.createElement('textarea');
     ta.value = json;
     document.body.appendChild(ta);
     ta.select();
     document.execCommand('copy');
     document.body.removeChild(ta);
-    setStatus(`✅ 已复制（fallback模式）`);
+    setStatus('✅ 已复制（fallback）', 'ok');
   });
 }
 
-// --- 键盘快捷键 ---
+// ── 键盘快捷键 ──
 document.addEventListener('keydown', (e) => {
   if (e.target.tagName === 'INPUT') return;
-  if (e.code === 'Space') {
+  if (e.code === 'Space') { e.preventDefault(); togglePlay(); }
+  else if (e.code === 'ArrowLeft') {
     e.preventDefault();
-    togglePlay();
-  } else if (e.code === 'ArrowLeft') {
-    video.currentTime = Math.max(0, video.currentTime - (e.shiftKey ? 5 : 1));
-  } else if (e.code === 'ArrowRight') {
-    video.currentTime = video.currentTime + (e.shiftKey ? 5 : 1);
+    v.currentTime = Math.max(0, v.currentTime - (e.shiftKey ? 5 : 1));
+  }
+  else if (e.code === 'ArrowRight') {
+    e.preventDefault();
+    v.currentTime = Math.min(v.duration||0, v.currentTime + (e.shiftKey ? 5 : 1));
+  }
+  else if (e.code === 'KeyA' && !e.ctrlKey && !e.metaKey) {
+    // 'A' key = 全选
+    selectAll();
+  }
+  else if (e.code === 'Escape') {
+    clearAll();
   }
 });
 
-// --- 加载示例数据 ---
-function loadSample() {
-  subtitles = [
-    { start: 0.00, end: 2.52, text: '客户一上来就问唐姐' },
-    { start: 2.52, end: 4.80, text: '你家TPE一吨多少钱我说' },
-    { start: 5.54, end: 7.84, text: '因为你一上来问价格' },
-    { start: 8.14, end: 10.08, text: '我反而不敢跟你报价了' },
-    { start: 10.26, end: 10.86, text: '为什么呢？' },
-    { start: 11.24, end: 12.60, text: '因为TPE的材料' },
-    { start: 12.60, end: 13.98, text: '它名称是一样的' },
-    { start: 14.28, end: 15.82, text: '但是它应用的场景不同' },
-    { start: 16.42, end: 18.34, text: '当然还有配方也不一样。' },
-    { start: 18.94, end: 21.32, text: '不管你是说做玩具' },
-    { start: 21.60, end: 23.80, text: '还是说做汽车内饰' },
-    { start: 23.98, end: 26.26, text: '或者是说做汽车密封件的' },
-    { start: 26.42, end: 27.90, text: '这些要求都不一样。' },
-    { start: 28.46, end: 30.74, text: '如果说你不知道软硬度' },
-    { start: 31.06, end: 32.50, text: '或者是说手感啊' },
-    { start: 32.92, end: 33.52, text: '然后耐候性' },
-    { start: 33.84, end: 35.20, text: '这些都不在要求的情况下' },
-    { start: 35.46, end: 36.54, text: '我就直接给你报价' },
-    { start: 36.96, end: 38.10, text: '那不是在害你吗？' },
-    { start: 38.24, end: 39.92, text: '所以你不要觉得我架子大' },
-    { start: 39.92, end: 41.94, text: '我不问清楚就给你报价' },
-    { start: 41.94, end: 43.96, text: '你把材料拿回去到时候出了问题' },
-    { start: 43.96, end: 45.92, text: '亏的是你自己呀' },
-    { start: 47.88, end: 50.66, text: '如果说你拿不准用什么材料' },
-    { start: 50.92, end: 52.38, text: '你把你合格的样板' },
-    { start: 52.38, end: 53.02, text: '快递给到我' },
-    { start: 53.16, end: 54.28, text: '免费给你分析' },
-    { start: 54.46, end: 55.16, text: '给你推荐材料' },
-  ];
-  selected.clear();
-  renderSubtitles();
-  setStatus(`已加载 ${subtitles.length} 条示例字幕（EP01前28条）`, 'info');
-}
-
-// --- 工具函数 ---
-function fmtTime(s) {
-  const m = Math.floor(s / 60);
-  const sec = (s % 60).toFixed(2);
-  return `${m.toString().padStart(2,'0')}:${sec.padStart(5,'0')}`;
-}
-
-function fmtTime2(s) {
-  if (!s || isNaN(s)) return '00:00';
-  const m = Math.floor(s / 60);
-  const sec = Math.floor(s % 60);
-  return `${m.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-}
-
+// ── 工具 ──
 function setStatus(msg, type='') {
   statusBar.textContent = msg;
   statusBar.className = 'status-bar' + (type ? ' ' + type : '');
 }
+
+// ── 速度控制 ──
+speedSelect.addEventListener('change', () => {
+  v.playbackRate = parseFloat(speedSelect.value);
+});
+
+// ── 加载示例数据 ──
+function loadSample() {
+  subs = [
+    { start:0.00, end:2.52, text:'客户一上来就问唐姐' },
+    { start:2.52, end:4.80, text:'你家TPE一吨多少钱我说' },
+    { start:5.54, end:7.84, text:'因为你一上来问价格' },
+    { start:8.14, end:10.08, text:'我反而不敢跟你报价了' },
+    { start:10.26, end:10.86, text:'为什么呢？' },
+    { start:11.24, end:12.60, text:'因为TPE的材料' },
+    { start:12.60, end:13.98, text:'它名称是一样的' },
+    { start:14.28, end:15.82, text:'但是它应用的场景不同' },
+    { start:16.42, end:18.34, text:'当然还有配方也不一样' },
+    { start:18.94, end:21.32, text:'不管你是说做玩具' },
+    { start:21.60, end:23.80, text:'还是说做汽车内饰' },
+    { start:23.98, end:26.26, text:'或者是说做汽车密封件的' },
+    { start:26.42, end:27.90, text:'这些要求都不一样' },
+    { start:28.46, end:30.74, text:'如果说你不知道软硬度' },
+    { start:31.06, end:32.50, text:'或者是说手感啊' },
+    { start:32.92, end:33.52, text:'然后耐候性' },
+    { start:33.84, end:35.20, text:'这些都不在要求的情况下' },
+    { start:35.46, end:36.54, text:'我就直接给你报价' },
+    { start:36.96, end:38.10, text:'那不是在害你吗' },
+    { start:38.24, end:39.92, text:'所以你不要觉得我架子大' },
+    { start:39.92, end:41.94, text:'我不问清楚就给你报价' },
+    { start:41.94, end:43.96, text:'你把材料拿回去到时候出了问题' },
+    { start:43.96, end:45.92, text:'亏的是你自己呀' },
+    { start:47.88, end:50.66, text:'如果说你拿不准用什么材料' },
+    { start:50.92, end:52.38, text:'你把你合格的样板' },
+    { start:52.38, end:53.02, text:'快递给到我' },
+    { start:53.16, end:54.28, text:'免费给你分析' },
+    { start:54.46, end:55.16, text:'给你推荐材料' },
+  ];
+  // 示例：AI预选静音区域
+  aiSelected = new Set([0, 5, 12, 17]);
+  selected.clear();
+  curIdx = -1;
+  render();
+  setStatus(`已加载 ${subs.length} 条示例字幕，${aiSelected.size} 条AI预选`, 'info');
+}
+
+// 速度选择器
+speedSelect.addEventListener('change', () => {
+  v.playbackRate = parseFloat(speedSelect.value);
+});
 </script>
 </body>
 </html>

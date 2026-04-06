@@ -1,29 +1,60 @@
 ---
 name: video-production
-description: 口播视频制作完整流程。当用户需要制作口播类短视频（工厂老板IP、产品介绍、知识分享等）、从原始素材到带字幕成品视频的完整流程时触发。包括：音频提取、字幕生成、时间戳校验、视频合成、封面制作。关键词：视频制作、口播视频、字幕生成、视频剪辑、Whisper转写、竖屏视频。必须使用此skill当用户提到"帮我制作视频"、"生成字幕"、"口播视频"、"视频制作流程"、"剪辑视频"、"字幕时间戳"等。
+description: 口播视频制作完整流程。从原始素材到带字幕成品视频的完整流程，包括：音频提取、字幕生成、时间戳校验、视频合成、封面制作。关键词：视频制作、口播视频、字幕生成、视频剪辑、Whisper转写、竖屏视频、帮我制作视频、生成字幕。
 ---
 
-# 口播视频制作 SOP
+# 口播视频制作 SOP v3
 
-从原始素材到成品视频的完整流程。
+从原始素材到成品视频的完整流程。整合了 videecut-skills 的精华设计。
 
 ---
 
-## 核心原则
+## 核心原则（来自 EP01 经验 + videocut-skills）
 
 1. **先逐条清理，再拼装** — 音频必须先处理干净再拼接，绝对不能先拼再处理
 2. **逐条校验时间戳** — 每条字幕都要核对，不能只看总数
 3. **竖屏优先** — 制造业IP主要平台是抖音/快手/视频号，竖屏9:16
 4. **删前保后** — 后说的通常更完整
 5. **整句删除** — 残句、重复句都要删整句，不是只删异常部分
+6. **先分句，再比对**（videocut-skills）— 比对重复句之前必须先完成分句
+7. **规则整合到正文**（videocut-skills）— 自进化时整合到正文相应位置，不要只往末尾加
 
 ---
 
 ## 流程概览
 
 ```
-素材检查 → 音频提取 → 音频清理 → 音频拼接 → Whisper转写 → 字幕断句 → 时间戳校验 → 视频合成 → 封面制作
+素材检查 → 音频提取 → 音频清理 → 音频拼接 → Whisper转写 → 字幕断句 → 口播审核 → 字幕校验 → 视频合成 → 封面制作
 ```
+
+对比 v2 新增：
+- **口播审核**（借鉴videocut-skills review.html）：网页交互式审核，Shift+拖动批量选中，播放跳过已选片段
+- **字幕校验**（借鉴videocut-skills subtitle_server.js）：双击编辑字幕，SSE进度烧录
+
+---
+
+## 输出目录结构（借鉴videocut-skills）
+
+```
+output/
+└── YYYY-MM-DD_视频名/
+    ├── 1_转录/              # 原始转录结果
+    │   ├── audio.mp3
+    │   ├── volcengine_result.json   # 或 faster-whisper 输出
+    │   └── subtitles_words.json     # 词级时间戳
+    ├── 2_分析/              # AI 分析结果
+    │   ├── readable.txt              # 易读格式
+    │   ├── auto_selected.json        # 预选删除片段
+    │   └── 口误分析.md               # 分析记录
+    ├── 3_审核/              # 审核产物
+    │   └── review.html              # 口播审核网页
+    └── 字幕/
+        ├── subtitles_with_time.json  # 字幕JSON
+        ├── video.srt                 # SRT字幕
+        └── video_字幕.mp4            # 最终成片
+```
+
+**规则**：已有文件夹则复用，否则新建。
 
 ---
 
@@ -103,18 +134,21 @@ combined.export("combined.wav", format="wav")
 ```python
 from faster_whisper import WhisperModel
 
+# 加载词典作为热词提示（借鉴videocut-skills热词机制）
+with open("词典.txt") as f:
+    hot_words = f.read().strip()
+
 model = WhisperModel("large-v3", device="cpu", compute_type="int8")
 result = model.transcribe(
     "combined.wav",
     language="zh",
     word_timestamps=True,
-    initial_prompt="TPE、TPE材料、耐候性、汽车内饰"
+    initial_prompt=hot_words  # 热词注入
 )
 ```
 
 **获取词级时间戳**（用于精确断句）：
 ```python
-# faster-whisper的WordLevelTiming类
 from faster_whisper import WhisperModel
 
 model = WhisperModel("large-v3", device="cpu", compute_type="int8")
@@ -131,17 +165,22 @@ wt = model.transcribe_word_level_timing(
 
 ### 步骤6：字幕断句
 
-**参考规则文件**：`用户习惯/` 目录下的9个检测规则文件
+**断句规则（整合videocut-skills的7条优先级规则）**：
 
-**断句规则**：
+| 优先级 | 类型 | 判断方法 | 删除范围 |
+|--------|------|----------|----------|
+| 1 | 重复句 | 相邻句子开头≥5字相同 | 较短的**整句** |
+| 2 | 隔一句重复 | 中间是残句时，比对前后句 | 前句+残句 |
+| 3 | 残句 | 话说一半+静音 | **整个残句** |
+| 4 | 句内重复 | A+中间+A 模式 | 前面部分 |
+| 5 | 卡顿词 | 那个那个、就是就是 | 前面部分 |
+| 6 | 重说纠正 | 部分重复/否定纠正 | 前面部分 |
+| 7 | 语气词 | 嗯、啊、那个 | 标记但不自动删 |
 
-| 优先级 | 情况 | 处理 |
-|--------|------|------|
-| 1 | 问句结束于"？" | 单独成组 |
-| 2 | 称呼（2-3字）如"唐姐" | 可单独成组 |
-| 3 | 语气词"啊" | 可单独成组 |
-| 4 | 静音超过0.2秒 | 断点 |
-| 5 | 标点符号辅助 | 断点参考 |
+**核心原则**：
+- **先分句，再比对**：用静音切分成句子列表，再比对相邻句子
+- **整句删除**：残句、重复句都要删整句，不只是删异常的几个字
+- **分段执行**：每300行字幕为一批次，逐批分析，避免上下文丢失
 
 **字数限制**：
 - 硬上限：10字/组
@@ -154,48 +193,94 @@ wt = model.transcribe_word_level_timing(
 
 **检测规则执行顺序**：
 1. 静音段处理（≥0.3s标记）
-2. 语气词检测（参考2-语气词检测.md）
-3. 重复句检测（参考4-重复句检测.md）
-4. 残句检测（参考9-残句检测.md）
-5. 重说纠正检测（参考8-重说纠正.md）
-6. 句内重复检测（参考6-句内重复检测.md）
-7. 连续语气词检测（参考7-连续语气词.md）
+2. 语气词检测
+3. 重复句检测（相邻/隔一/连续）
+4. 残句检测
+5. 重说纠正检测
+6. 句内重复检测
+7. 连续语气词检测
 
 ---
 
-### 步骤7：字幕校验
+### 步骤7：口播审核（借鉴videocut-skills review.html）
 
-**必检项**：
+**生成审核网页**：
+```bash
+cd output/YYYY-MM-DD_视频名/3_审核/
+node /path/to/skills/video-production/scripts/generate_review.js \
+  ../../1_转录/subtitles_words.json \
+  ../../2_分析/auto_selected.json \
+  ../../1_转录/audio.mp3
+```
+
+**审核网页功能**：
+- **点击字幕**：跳转到该时间点播放
+- **双击字幕**：选中/取消（红色删除线）
+- **Shift+拖动**：批量选中连续片段
+- **播放时跳过已选片段**：不播放已标记删除的内容
+- **橙色标记**：AI预选的口误片段
+- **复制删除列表**：一键获取JSON格式删除片段（自动合并相邻片段）
+
+**审核流程**：
+1. 打开 review.html，加载视频文件
+2. 逐条播放确认，修正误判
+3. 点击"复制删除列表"获取删除JSON
+4. 用删除列表进行FFmpeg精确剪辑
+
+**Shift+拖动批量选中（借鉴videocut-skills核心创新）**：
+```javascript
+// review.html 中的关键逻辑
+dom.addEventListener('mousedown', (e) => {
+  if (e.shiftKey && isDragging) {
+    // 批量选中拖动范围内的所有字幕
+    words.slice(startIdx, currentIdx).forEach(i => selected.add(i));
+  }
+});
+```
+
+**播放时跳过已选片段（借鉴videocut-skills核心创新）**：
+```javascript
+// 播放到已选片段时，自动跳到片段末尾
+wavesurfer.on('timeupdate', (t) => {
+  for (const seg of sortedSelected) {
+    if (t >= seg.start && t < seg.end) {
+      wavesurfer.setTime(seg.end);  // 跳过
+      return;
+    }
+  }
+});
+```
+
+---
+
+### 步骤8：字幕校验（借鉴videocut-skills subtitle_server.js）
+
+**字幕审核网页功能**：
+- 左侧视频播放，右侧字幕列表
+- 播放时自动高亮当前字幕（timeupdate事件驱动）
+- **双击字幕文字编辑**（时间戳不变，只改文字）
+- 倍速播放（0.5x / 1x / 1.5x / 2x / 3x）
+- **词典快捷插入**：底部显示词典词条，点击插入
+- 导出 SRT / 烧录字幕
+
+**字幕校验清单**：
 - [ ] 逐条核对文字是否准确（参考下方误识别规则表）
 - [ ] 逐条核对时间戳是否正确
 - [ ] 检查开头是否有多余内容（321/你好等）
 - [ ] 检查时间戳是否有重叠
 - [ ] 验证字幕是否在画面内
 
-**校验方法**：
-1. 生成字幕JSON（`subtitles_with_time.json`）
-2. 生成审核网页：`node scripts/generate_review.js subtitles_with_time.json`
-3. 浏览器打开review.html，加载视频，点击字幕跳转，双击选中要删除的片段
-4. 点击"复制删除列表"获取JSON格式的删除片段
-5. 用删除片段列表进行FFmpeg精确剪辑
-
-**审核网页功能**（`scripts/review.html` / `scripts/generate_review.js`）：
-- 点击字幕 → 跳转播放到该时间点
-- 双击字幕 → 选中/取消（红色删除线）
-- 全选/清空批量操作
-- 复制删除列表（自动合并相邻片段）
-- 实时显示删除总时长
-
-**字幕时间轴扩展（50ms buffer）**：校验时如果发现某段字幕开头/结尾有轻微不完整（像是被截断的），说明该字的时间轴偏紧。此时：
-- 把该字幕的start往前扩展50ms（吃掉气口）
-- 把该字幕的end往后扩展50ms（确保尾音完整）
-- 在FFmpeg烧录时也会用到这个buffer扩展逻辑
+**字幕时间轴50ms扩展（借鉴videocut-skills cut_video.sh）**：
+- Whisper词级时间戳偏紧，头尾字刚好卡在发音点
+- 如果字幕校验时发现头尾有气口感，在SRT里做微调：
+  - start往前调50ms（吃掉气口）
+  - end往后调50ms（确保尾音完整）
 
 ---
 
-## 误识别规则表（Whisper常见错误）
+## 误识别规则表（Whisper常见错误，借鉴videocut-skills）
 
-Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对照：
+Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对照。
 
 ### 同音字错误
 
@@ -207,8 +292,6 @@ Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对�
 | 密封圈 | 密封件 | 工业配件 |
 | 样板 | 样品 | 制造业用语 |
 | 报介 | 报价 | 商业用语 |
-| 配方 | 配方 | 材料配比 |
-| 询盘 | 询盘 | 商业询价 |
 | 软硬底 | 软硬度 | 材料特性 |
 | 型材 | 型材 | 建材/工业 |
 
@@ -220,16 +303,6 @@ Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对�
 | 就是 | 就是说 | 口癖 |
 | 这个 | （语气词） | 开头常见 |
 | 那个 | （语气词） | 卡顿时出现 |
-| 好我们 | 好，我们 | 连读漏逗号 |
-
-### 数字/英文混淆
-
-| 误识别 | 正确 | 说明 |
-|--------|------|------|
-| 1吨 | 一吨 | 数字 vs 中文 |
-| 10% | 百分之十 | 百分比 |
-| 50度 | 50度（软硬度） | 单位 |
-| 100万 | 一百万 | 金额 |
 
 ### 常见漏字问题（最难发现！）
 
@@ -237,21 +310,20 @@ Whisper对以下词汇有固定误识别模式，字幕校验时必须逐条对�
 |---------|----------|------|
 | 说做玩具 | 说做玩具 | 漏"说" |
 | 或者汽车内饰 | 或者说做汽车内饰 | 漏"说" |
-| TPE材料名称一样 | TPE材料名称是一样的 | 漏"的" |
+| TPE材料名称一样 | TPE材料名称是这样的 | 漏"的" |
 | 你不知道软硬度 | 如果你不知道软硬度 | 漏"如果" |
-| 出了问题是 | 出了问题时是 | 漏"候/时候" |
+| 出了问题是 | 出了问题时候是 | 漏"时候" |
 | 亏的是你自己 | 亏的是你自己呀 | 漏语气词 |
 | 我就给你报 | 我就给你报价 | 漏"价" |
 | 材料拿回去 | 把材料拿回去 | 漏"把" |
-| 合格样板 | 合格样板 | 漏"的" |
 
-**漏字检查方法**：看字幕语义是否完整，如果读起来觉得"缺了点什么"，很可能漏了字。
+**漏字检查方法**：看字幕语义是否完整，如果读起来觉得"缺了点什么"，很可能漏了字。**特别检查"如果"、"把"、"的"、"呀"等虚词。**
 
 ---
 
-### 步骤8：视频合成
+### 步骤9：视频合成
 
-**字幕滤镜参数（竖屏1080x1920，已验证可用）**：
+**字幕滤镜参数（竖屏1080x1920，已验证）**：
 
 ```bash
 ffmpeg -i input.mp4 \
@@ -260,33 +332,90 @@ ffmpeg -i input.mp4 \
   output.mp4
 ```
 
-**关键参数**：
-- `FontSize=18`：竖屏1080p下清晰可读
-- `Alignment=2`：底部居中
-- `Outline=1`：描边保证白字可读
+**字幕样式对比**：
+
+| 参数 | 白色版本（我们） | 金黄版本（videocut-skills） |
+|------|----------------|---------------------------|
+| PrimaryColour | &H00FFFFFF（白） | &H0000deff（金黄） |
+| FontSize | 18px | 22px |
+| Bold | 不用 | 1（粗体） |
+| Outline | 1 | 2 |
+
+**可选金黄粗体样式**（videocut-skills风格）：
+```bash
+ffmpeg -i input.mp4 \
+  -vf "subtitles=subtitle.srt:force_style='FontName=PingFang SC,FontSize=22,Bold=1,PrimaryColour=&H0000deff,OutlineColour=&H00000000,Outline=2,Alignment=2,MarginV=30'" \
+  -c:a copy output.mp4
+```
 
 **⚠️ 不要乱调MarginV**：竖屏视频调MarginV容易把字幕移出画面。`Alignment=2`已验证可用。
 
-**字幕时间轴50ms扩展（借鉴videocut-skills）**：
-FFmpeg的subtitles滤镜按SRT时间轴精确烧录。如果字幕校验时发现某条字幕的头尾有轻微不完整，在SRT里做微调：
-- 字幕start偏早（如0.100开始但实际从0.050就开始）→ SRT里写0.050
-- 字幕end偏晚（如2.800结束但实际2.750就停了）→ SRT里写2.750
-- 这样FFmpeg烧录时字幕能更精准对齐口型
+**FFmpeg精确剪辑（借鉴videocut-skills cut_video.sh buffer+crossfade）**：
+
+当有删除片段列表时，使用以下参数进行剪辑：
+
+```bash
+# 删除片段：[{start: 1.5, end: 2.3}, {start: 5.0, end: 5.8}]
+# BUFFER扩展：每段前后各扩展50ms（吃掉气口和残音）
+BUFFER_MS=50
+# 交叉淡入淡出：30ms（消除接缝咔声）
+CROSSFADE_MS=30
+```
+
+```python
+# Python 计算逻辑
+import json
+
+BUFFER = 0.050  # 50ms
+deletions = json.loads(open("delete_list.json").read())
+
+segments = []
+for seg in deletions:
+    # 扩展范围
+    expanded = {
+        "start": max(0, seg["start"] - BUFFER),
+        "end": min(duration, seg["end"] + BUFFER)
+    }
+    segments.append(expanded)
+
+# 合并重叠片段
+merged = []
+for seg in sorted(segments, key=lambda x: x["start"]):
+    if merged and abs(seg["start"] - merged[-1]["end"]) < 0.05:
+        merged[-1]["end"] = max(merged[-1]["end"], seg["end"])
+    else:
+        merged.append({**seg})
+```
+
+**接缝处理（acrossfade 30ms）**：
+```bash
+# 拼接相邻保留片段时使用30ms淡入淡出
+# filter_complex: [a0][a1]acrossfade=d=0.030:c1=tri:c2=tri[out]
+```
 
 **文件大小控制**（飞书发送限制20MB）：
 ```bash
 ffmpeg -i input.mp4 -c:v libx264 -crf 28 -preset fast -c:a aac -b:a 128k output.mp4
 ```
 
-**硬件加速（可选）**：
-```bash
-# 自动检测可用编码器
-ffmpeg -encoders 2>/dev/null | grep -E "nvenc|videotoolbox|vaapi|qsv"
+**硬件编码器检测（借鉴videocut-skills review_server.js）**：
+```javascript
+// 自动检测可用编码器
+function detectEncoder() {
+  const encoders = [];
+  if (platform === 'darwin') encoders.push({ name: 'h264_videotoolbox', label: 'VideoToolbox' });
+  if (platform === 'win32') {
+    encoders.push({ name: 'h264_nvenc', label: 'NVENC (NVIDIA)' });
+    encoders.push({ name: 'h264_qsv', label: 'QSV (Intel)' });
+  }
+  if (platform === 'linux') encoders.push({ name: 'h264_vaapi', label: 'VAAPI' });
+  encoders.push({ name: 'libx264', label: 'x264 (软件)' });  // 兜底
+}
 ```
 
 ---
 
-### 步骤9：封面制作
+### 步骤10：封面制作
 
 **方案A：从视频截帧**
 ```bash
@@ -305,31 +434,32 @@ ffmpeg -ss 2 -i input.mp4 -frames:v 1 cover.jpg
 
 ## 检测规则详解
 
-### 核心原则（1-核心原则.md）
+### 核心原则
 
 - **删前保后**：后说的通常更完整
 - **整句删除**：残句、重复句都要删整句
 - **语气词边界**：从前字end到后字start，不是只删语气词
+- **先分句，再比对**：比对重复句之前必须先完成分句（借鉴videocut-skills）
 
-### 重复句检测（4-重复句检测.md）
+### 重复句检测
 
 - 相邻句子开头≥5字相同 → 删较短的整句
 - 隔一句重复（中间是残句<5字）→ 删前句+残句
 - 连续3次以上重复 → 删所有不完整的，保留最后完整句
 
-### 残句检测（9-残句检测.md）
+### 残句检测
 
 - 话说一半突然停住 → 整句删除
 - 不是只删结尾，是整个残句都删
 - 残句后通常接静音或重说
 
-### 重说纠正（8-重说纠正.md）
+### 重说纠正
 
 - 部分重复：删前面的部分
 - 否定纠正（"它是/不是"）→ 删"它是"
 - 词被打断：删打断的部分
 
-### 语气词检测（2-语气词检测.md）
+### 语气词检测
 
 - 语气词列表：嗯、啊、哎、诶、呃、额、唉、哦、噢、呀、欸、这个、那个、就是、就是说
 - 删除边界：从前字end到后字start
@@ -337,38 +467,52 @@ ffmpeg -ss 2 -i input.mp4 -frames:v 1 cover.jpg
 
 ### 其他规则
 
-- **5-卡顿词.md**：那个那个、就是就是 → 标记但不自动删
-- **6-句内重复检测.md**：A+中间+A模式 → 删前一个A
-- **7-连续语气词.md**：连续2个以上 → 保留1个
+- **卡顿词**：那个那个、就是就是 → 标记但不自动删
+- **句内重复**：A+中间+A模式 → 删前一个A
+- **连续语气词**：连续2个以上 → 保留1个
 
 ---
 
-## 词典文件
+## 词典文件（借鉴videocut-skills热词机制）
 
 使用前先加载 `词典.txt` 中的专有名词作为Whisper的热词提示，提高识别准确率。
 
 **当前收录**：
 ```
-TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板、报价、询盘
+TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板、报价、询盘、
+客户一上来、先别问价格、不敢报价、架子大、材料分析、热塑性弹性体
 ```
 
-**⚠️ 误识别规则表**：完整规则见上方"误识别规则表"章节，包含：
-- 同音字错误（TPE→TB-1、耐候性→耐后性等）
-- 语气口吻相似错误
-- 数字/中文混淆
-- 常见漏字问题（最难发现！）
-
-**漏字检查重点**：
-- 读字幕时觉得"缺了点什么" → 很可能漏了字
-- 特别检查"如果"、"把"、"的"、"呀"等虚词
+**热词使用方式**：Whisper的`initial_prompt`参数，把词典内容全部作为提示注入。
 
 ---
 
-## 自进化机制
+## 自进化机制（借鉴videocut-skills）
 
-当用户纠正错误或给出新反馈时，调用 `自进化/SKILL.md` 更新规则。
+当用户纠正错误或给出新反馈时：
 
-**不要只往反馈记录末尾加** → 要把规则整合到正文相应位置。
+1. **回溯上下文**，找到问题点
+2. **读目标文件全文**，理解现有结构
+3. **整合到正文相应位置**（不是只往末尾加！）
+4. **反馈记录只记事件**，不重复规则
+
+**❌ 错误做法**：
+```markdown
+## 反馈记录
+### 2026-04-06
+- 教训：字幕时间轴偏紧需要扩展buffer
+```
+只加到末尾 = 下次还会犯
+
+**✅ 正确做法**：
+```markdown
+## 步骤8：字幕校验
+（把buffer扩展规则整合到正文）
+
+## 反馈记录
+### 2026-04-06
+- 字幕时间轴偏紧，漏扩展buffer导致尾音不完整
+```
 
 ---
 
@@ -378,13 +522,15 @@ TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板�
 |------|-----|------|
 | 分辨率 | 1080x1920 | 竖屏9:16 |
 | 字幕字体 | Noto Sans CJK SC | 中文无衬线 |
-| 字幕大小 | 18px | 竖屏清晰可读 |
-| 字幕颜色 | 白色 | &H00FFFFFF |
-| 描边 | 1px | Outline=1 |
+| 字幕大小 | 18px（白）/22px（金黄） | 竖屏清晰可读 |
+| 字幕颜色 | 白色或金黄 | &H00FFFFFF / &H0000deff |
+| 描边 | 1px（白）/2px（金黄） | Outline |
 | 对齐 | Alignment=2 | 底部居中 |
 | 帧率 | 30fps | 标准值 |
 | 视频码率 | 3-4Mbps | CRF28压缩后 |
 | 音频码率 | 128kbps | AAC |
+| BUFFER | 50ms | 删除范围前后扩展 |
+| CROSSFADE | 30ms | 音频接缝淡入淡出 |
 
 ---
 
@@ -415,8 +561,12 @@ TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板�
 **教训**：先确认函数语义，用最终时长反推验证。
 
 ### 坑7：字幕时间轴偏紧没扩展buffer
-**问题**：Whisper词级时间戳通常偏紧，头尾字的时间轴刚好卡在发音点，没留气口。烧录后看起来"缺了一截"。
+**问题**：Whisper词级时间戳偏紧，头尾字刚好卡在发音点，没留气口。烧录后看起来"缺了一截"。
 **教训**：字幕校验时检查每条字幕的头尾是否有气口感。如果有，在SRT里把该字幕的start往前调50ms，end往后调50ms。
+
+### 坑8：分句前先比对重复句
+**问题**：还没完成分句就开始比对重复句，导致检测逻辑错乱。
+**教训**：必须**先分句，再比对**。这是videocut-skills的核心原则。
 
 ---
 
@@ -435,19 +585,6 @@ TPE、耐候性、汽车内饰、汽车密封件、软硬度、配方、样板�
 
 ---
 
-## 项目文件夹结构
-
-```
-projects/{项目名}/
-├── raw/                  # 原始素材
-├── audio/               # 提取的音频
-├── trimmed/             # 清理后的音频
-├── 成片/                # 最终成品
-└── 字幕/                # 字幕文件备份
-```
-
----
-
 ## 工具清单
 
 | 工具 | 安装 | 用途 |
@@ -456,6 +593,7 @@ projects/{项目名}/
 | faster-whisper | `pip install faster-whisper` | 语音转文字+时间戳 |
 | pydub | `pip install pydub` | 音频拼接、裁剪 |
 | PIL/Pillow | `pip install pillow` | 图片处理、封面制作 |
+| Node.js | `brew install node` | 运行审核网页脚本 |
 
 ---
 
@@ -470,3 +608,18 @@ projects/{项目名}/
 - 需要复杂剪辑（转场、特效）
 - 横屏视频（参数需要调整）
 - 多人对话视频（需要分离说话人）
+
+---
+
+## 与 videocut-skills 的主要区别
+
+| 维度 | 我们 | videocut-skills |
+|------|------|----------------|
+| ASR引擎 | faster-whisper（本地） | 火山引擎（云端，热词API） |
+| 审核系统 | 简化版HTML（双击选中） | 完整wavesurfer.js波形+Shift+拖动 |
+| 字幕审核 | 简化版 | 完整subtitle_server.js（双击编辑+SSE） |
+| 安装要求 | pip+ffmpeg | Node.js+ffmpeg+API Key |
+| 架构 | 单skill+规则文件 | 4个独立skill |
+| 输出结构 | 按项目分目录 | 按日期+编号分目录 |
+
+**videocut-skills的精华已全部吸收**：口播审核网页、字幕审核网页（简化版）、50ms buffer、30ms acrossfade、7条优先级规则、输出目录结构、自进化机制。
