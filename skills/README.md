@@ -6,7 +6,7 @@
 
 ## 当前技能
 
-### video-production
+### video-honghua
 口播视频制作完整流程，从原始素材到带字幕成品视频的完整SOP。
 
 **包含内容**：

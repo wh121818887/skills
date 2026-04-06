@@ -1,0 +1,2 @@
+file '/home/skyboss/.openclaw/workspace/projects/NC-002-强哥测试/output/L1_p.mp4'
+file '/home/skyboss/.openclaw/workspace/projects/NC-002-强哥测试/output/L2_p.mp4'
