@@ -1,17 +1,19 @@
 #!/usr/bin/env node
 /**
- * 生成字幕审核网页（v3 - 完整功能版）
+ * 生成字幕审核网页（v3.1 - 完整功能版，含编辑+拆分）
  *
- * 用法: node generate_review.js <subtitles.json> [auto_selected.json] [audio.mp3] [output.html]
+ * 用法: node generate_review.js <subtitles.json> [auto_selected.json] [video.mp4] [output.html]
  *
  * 功能：
  * - 点击字幕 → 跳转播放
  * - 双击字幕 → 选中/取消
+ * - 点击字幕文字 → 直接编辑（回车保存）
+ * - S键/拆分按钮 → 在播放头位置拆分字幕
  * - Shift+点击 → 批量选中（从上次位置到当前位置）
  * - 播放时自动跳过已选片段
  * - 橙色标记AI预选片段
  * - 复制删除列表（自动合并相邻片段）
- * - 键盘快捷键：空格/方向键/A键/Escape
+ * - 键盘快捷键：空格/方向键/A键/S/Escape
  */
 
 const fs = require('fs');
@@ -19,12 +21,12 @@ const path = require('path');
 
 const subtitlesFile = process.argv[2];
 const autoSelectedFile = process.argv[3];
-const audioFile = process.argv[4];
+const videoFile = process.argv[4];
 const outputFile = process.argv[5] || 'review.html';
 
 if (!subtitlesFile) {
-  console.log('❌ 用法: node generate_review.js <subtitles.json> [auto_selected.json] [audio.mp3] [output.html]');
-  console.log('   示例: node generate_review.js subtitles_words.json auto_selected.json audio.mp4');
+  console.log('❌ 用法: node generate_review.js <subtitles.json> [auto_selected.json] [video.mp4] [output.html]');
+  console.log('   示例: node generate_review.js subtitles_words.json auto_selected.json video.mp4');
   process.exit(1);
 }
 
@@ -106,9 +108,12 @@ const html = `<!DOCTYPE html>
     .subtitle-item.selected.ai-selected{background:#2a1a00}
     .subtitle-item.selected.ai-selected::before{background:#ff5722}
     .sub-num{font-size:11px;color:#444;min-width:24px;text-align:right;padding-top:1px}
-    .sub-time{font-family:'Courier New',monospace;font-size:10px;color:#555;white-space:nowrap;min-width:80px;padding-top:2px;line-height:1.5}
-    .sub-text{flex:1;word-break:break-all;line-height:1.6}
+    .sub-time{font-family:'Courier New',monospace;font-size:10px;color:#555;white-space:nowrap;min-width:80px;padding-top:2px;line-height:1.5;cursor:pointer}
+    .sub-time:hover{color:#4CAF50}
+    .sub-text{flex:1;word-break:break-all;line-height:1.6;cursor:text;padding:1px 3px;border-radius:2px}
+    .sub-text:hover{background:rgba(76,175,80,0.15)}
     .subtitle-item.selected .sub-text{text-decoration:line-through;color:#f44336}
+    .sub-text-input{background:#1e3a1e;border:1px solid #4CAF50;color:#fff;padding:2px 6px;border-radius:3px;font-size:13px;font-family:inherit;width:70%;outline:none}
     .drag-hint{position:fixed;pointer-events:none;background:rgba(255,152,0,.15);border:1px dashed #ff9800;border-radius:3px;display:none;font-size:11px;color:#ff9800;padding:2px 6px;z-index:1000}
     .help-bar{padding:6px 15px;background:#1e1e1e;border-top:1px solid #333;font-size:11px;color:#555}
     .help-bar b{color:#888}
@@ -126,9 +131,10 @@ const html = `<!DOCTYPE html>
 <body>
 <div class="header">
   <h1>🎬 字幕审核</h1>
-  <span class="tag">红华管家 v3</span>
-  <span class="tag new">Shift+拖动批量选中</span>
-  <span class="tag new">播放跳过已选</span>
+  <span class="tag">红华管家 v3.1</span>
+  <span class="tag new">点击字幕文字=编辑 ✍️</span>
+  <span class="tag new">S键=拆分字幕 ✂️</span>
+  <span class="tag new">Shift+拖动=批量选中</span>
   <div class="file-input-wrap" style="margin-left:auto">
     <label for="videoInput">📹 视频</label><input type="file" id="videoInput" accept="video/*">
     <label for="autoSelectInput" style="color:#ff9800">🤖 AI预选JSON</label><input type="file" id="autoSelectInput" accept=".json,.txt">
@@ -152,10 +158,11 @@ const html = `<!DOCTYPE html>
       <button class="btn btn-secondary" onclick="invertAll()">🔄 反选</button>
       <button class="btn btn-danger" onclick="clearAll()">🗑 清空</button>
       <button class="btn btn-primary" onclick="copyDeleteList()">📋 复制删除</button>
+      <button class="btn btn-warning" onclick="splitAtPlayhead()" title="快捷键 S">✂️ 拆分</button>
       <button class="skip-badge" id="skipBtn" onclick="toggleSkip()">⏭ 跳过</button>
       <span class="time-display" id="td">00:00 / 00:00</span>
     </div>
-    <div class="status-bar" id="statusBar">就绪 · 单击=跳转 | 双击=选中 | Shift+拖动=批量选中</div>
+    <div class="status-bar" id="statusBar">就绪 · 单击=跳转 | 双击=选中 | 点击文字=编辑 | S=拆分</div>
   </div>
   <div class="subtitle-panel">
     <div class="subtitle-header">
@@ -170,7 +177,7 @@ const html = `<!DOCTYPE html>
     <div class="subtitle-list" id="subList"></div>
     <div class="delete-preview" id="delPreview" style="display:none"><pre id="delPre"></pre></div>
     <div class="help-bar">
-      <b>🖱单击</b>=跳转 &nbsp;<b>🖱双击</b>=选中 &nbsp;<b>Shift+拖动</b>=批量 &nbsp;<b>⌨空格</b>=播放/暂停 &nbsp;<b>←→</b>=跳转1s &nbsp;<b>Shift+←→</b>=跳转5s
+      <b>🖱单击</b>=跳转 &nbsp;<b>🖱双击</b>=选中 &nbsp;<b>点击文字</b>=编辑 &nbsp;<b>Shift+拖动</b>=批量 &nbsp;<b>⌨S</b>=拆分 &nbsp;<b>⌨空格</b>=播放/暂停 &nbsp;<b>←→</b>=跳转1s &nbsp;<b>Shift+←→</b>=跳转5s
     </div>
   </div>
 </div>
@@ -186,6 +193,7 @@ const subs=${JSON.stringify(subs)};
 let selected=new Set(${JSON.stringify(Array.from(aiSelected))});
 let aiSelected=new Set(${JSON.stringify(Array.from(aiSelected))});
 let curIdx=-1,lastDragIdx=-1,isDragging=false;
+let editingIdx=-1;
 
 document.getElementById('videoInput').addEventListener('change',e=>{
   const f=e.target.files[0];if(!f)return;
@@ -202,14 +210,33 @@ function render(){
   cnt.textContent='('+subs.length+')';aiCount.textContent=aiSelected.size;updateStats();
   subList.innerHTML=subs.map((s,i)=>{
     const cls=[selected.has(i)?'selected':'',curIdx===i?'current':'',aiSelected.has(i)?'ai-selected':''].filter(Boolean).join(' ');
-    return'<div class="subtitle-item '+cls+'" data-idx="'+i+'" onmousedown="onMD(event,'+i+')" onmousemove="onMM(event,'+i+')" onmouseup="onMU(event,'+i+')" ondblclick="onDbl('+i+')"><span class="sub-num">'+(i+1)+'</span><span class="sub-time">'+fmt(s.start)+' → '+fmt(s.end)+'</span><span class="sub-text">'+esc(s.text||'')+'</span></div>';
+    const textHtml=editingIdx===i
+      ?'<input type="text" class="sub-text-input" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===\'Enter\')this.blur()">'
+      :'<span class="sub-text" onclick="startEdit('+i+')">'+esc(s.text||'')+'</span>';
+    return'<div class="subtitle-item '+cls+'" data-idx="'+i+'" onmousedown="onMD(event,'+i+')" onmousemove="onMM(event,'+i+')" onmouseup="onMU(event,'+i+')" ondblclick="onDbl('+i+')"><span class="sub-num">'+(i+1)+'</span><span class="sub-time" onclick="jump('+i+')">'+fmt(s.start)+' → '+fmt(s.end)+'</span>'+textHtml+'</div>';
   }).join('');
+  if(editingIdx>=0){
+    const el=subList.querySelector('[data-idx="'+editingIdx+'"] .sub-text-input');
+    if(el){el.focus();el.select();}
+  }
 }
-function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function fmt(s){const m=Math.floor(s/60),sec=(s%60).toFixed(2);return String(m).padStart(2,'0')+':'+sec.padStart(5,'0');}
 function fmt2(s){if(!s||isNaN(s))return'00:00';const m=Math.floor(s/60),sec=Math.floor(s%60);return String(m).padStart(2,'0')+':'+String(sec).padStart(2,'0');}
 function jump(i){if(!subs[i])return;curIdx=i;lastDragIdx=i;v.currentTime=subs[i].start;v.play().catch(()=>{});render();scrollTo(i);}
 function scrollTo(i){const el=subList.querySelector('[data-idx="'+i+'"]');if(el)el.scrollIntoView({behavior:'smooth',block:'center'});}
+function startEdit(idx){editingIdx=idx;render();}
+function saveEdit(idx,newText){if(subs[idx]){subs[idx].text=newText.trim();setStatus('✅ 已保存: "'+subs[idx].text+'"','ok');}editingIdx=-1;render();updateStats();}
+function splitAtPlayhead(){
+  if(curIdx<0||curIdx>=subs.length){setStatus('⚠ 请先播放到要拆分的位置','err');return;}
+  const t=v.currentTime;const s=subs[curIdx];
+  if(t<=s.start||t>=s.end){setStatus('⚠ 播放头 '+fmt(t)+' 不在字幕 '+(curIdx+1)+' 范围内 ['+fmt(s.start)+'-'+fmt(s.end)+']','err');return;}
+  const newSub={start:+t.toFixed(3),end:+s.end.toFixed(3),text:s.text};
+  s.end=+t.toFixed(3);
+  subs.splice(curIdx+1,0,newSub);
+  setStatus('✅ 已拆分字幕 '+(curIdx+1)+'，新字幕在 '+fmt(t)+' 处断开','ok');
+  render();updateStats();
+}
 function onMD(e,i){if(e.button!==0)return;e.preventDefault();}
 function onMM(e,i){}
 function onMU(e,i){
@@ -266,7 +293,8 @@ document.addEventListener('keydown',e=>{
   else if(e.code==='ArrowLeft'){e.preventDefault();v.currentTime=Math.max(0,v.currentTime-(e.shiftKey?5:1));}
   else if(e.code==='ArrowRight'){e.preventDefault();v.currentTime=Math.min(v.duration||0,v.currentTime+(e.shiftKey?5:1));}
   else if(e.code==='KeyA'&&!e.ctrlKey&&!e.metaKey){selectAll();}
-  else if(e.code==='Escape'){clearAll();}
+  else if(e.code==='KeyS'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();splitAtPlayhead();}
+  else if(e.code==='Escape'){if(editingIdx>=0){editingIdx=-1;render();}else{clearAll();}}
 });
 speedSelect.addEventListener('change',()=>{v.playbackRate=parseFloat(speedSelect.value);});
 function setStatus(msg,type=''){statusBar.textContent=msg;statusBar.className='status-bar'+(type?' '+type:'');}
@@ -278,4 +306,4 @@ render();
 fs.writeFileSync(outputFile, html);
 console.log(`✅ 已生成: ${outputFile}`);
 console.log(`📌 双击 ${outputFile} 在浏览器中打开`);
-console.log(`📌 Shift+点击 = 批量选中 | 双击 = 选中/取消 | 播放时自动跳过已选片段`);
+console.log(`📌 点击文字=编辑 | S键=拆分 | Shift+点击=批量选中 | 双击=选中/取消`);
