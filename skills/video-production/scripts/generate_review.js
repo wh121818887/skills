@@ -211,7 +211,7 @@ function render(){
   subList.innerHTML=subs.map((s,i)=>{
     const cls=[selected.has(i)?'selected':'',curIdx===i?'current':'',aiSelected.has(i)?'ai-selected':''].filter(Boolean).join(' ');
     const textHtml=editingIdx===i
-      ?'<input type="text" class="sub-text-input" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===\x27Enter\x27)this.blur()">'
+      ?'<input type="text" class="sub-text-input" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===" + String.fromCharCode(39) + "Enter" + String.fromCharCode(39) + ")this.blur()">'
       :'<span class="sub-text" onclick="startEdit('+i+')">'+esc(s.text||'')+'</span>';
     return'<div class="subtitle-item '+cls+'" data-idx="'+i+'" onmousedown="onMD(event,'+i+')" onmousemove="onMM(event,'+i+')" onmouseup="onMU(event,'+i+')" ondblclick="onDbl('+i+')"><span class="sub-num">'+(i+1)+'</span><span class="sub-time" onclick="jump('+i+')">'+fmt(s.start)+' → '+fmt(s.end)+'</span>'+textHtml+'</div>';
   }).join('');
