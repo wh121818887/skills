@@ -211,18 +211,26 @@ document.getElementById('autoSelectInput').addEventListener('change',e=>{
   reader.onload=ev=>{try{aiSelected=new Set(JSON.parse(ev.target.result));render();updateStats();setStatus('AI预选已加载 '+aiSelected.size+' 条','info');}catch(err){setStatus('AI预选JSON错误','err');}};
   reader.readAsText(f);
 });
+// 事件委托：处理字幕文字和编辑按钮的点击（解决file://协议下onclick不工作的问题）
+document.addEventListener('click',e=>{
+  const el=e.target.closest('[data-edit-idx]');
+  if(el&&el.dataset.editIdx!==undefined){
+    const idx=parseInt(el.dataset.editIdx);
+    if(!isNaN(idx)&&idx>=0&&idx<subs.length){startEdit(idx);}
+  }
+});
 function render(){
   cnt.textContent='('+subs.length+')';aiCount.textContent=aiSelected.size;updateStats();
   subList.innerHTML=subs.map((s,i)=>{
     const cls=[selected.has(i)?'selected':'',curIdx===i?'current':'',aiSelected.has(i)?'ai-selected':''].filter(Boolean).join(' ');
     const textHtml=editingIdx===i
-      ?'<input type="text" class="sub-text-input" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===" + String.fromCharCode(39) + "Enter" + String.fromCharCode(39) + ")this.blur()">'
-      :'<span class="sub-text" onclick="startEdit('+i+')">'+esc(s.text||'')+'</span><button class="edit-btn" onclick="startEdit('+i+')" title="编辑 (E)">✏️</button>';
+      ?'<input type="text" class="sub-text-input" data-idx="'+i+'" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===" + String.fromCharCode(39) + "Enter" + String.fromCharCode(39) + ")this.blur()">'
+      :'<span class="sub-text" data-edit-idx="'+i+'">'+esc(s.text||'')+'</span><button class="edit-btn" data-edit-idx="'+i+'" title="编辑 (E)">✏️</button>';
     return'<div class="subtitle-item '+cls+'" data-idx="'+i+'" onmousedown="onMD(event,'+i+')" onmousemove="onMM(event,'+i+')" onmouseup="onMU(event,'+i+')" ondblclick="onDbl('+i+')"><span class="sub-num">'+(i+1)+'</span><span class="sub-time" onclick="jump('+i+')">'+fmt(s.start)+' → '+fmt(s.end)+'</span>'+textHtml+'</div>';
   }).join('');
   if(editingIdx>=0){
     const el=subList.querySelector('[data-idx="'+editingIdx+'"] .sub-text-input');
-    if(el){el.focus();el.select();}
+    if(el){el.focus();const len=el.value.length;el.setSelectionRange(len,len);}
   }
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}

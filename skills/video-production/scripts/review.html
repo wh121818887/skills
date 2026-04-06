@@ -437,6 +437,17 @@ document.getElementById('videoInput').addEventListener('change', (e) => {
   setStatus('视频已加载', 'info');
 });
 
+// 事件委托：处理字幕文字和编辑按钮的点击（解决file://协议下onclick不工作的问题）
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-edit-idx]');
+  if (el && el.dataset.editIdx !== undefined) {
+    const idx = parseInt(el.dataset.editIdx);
+    if (!isNaN(idx) && idx >= 0 && idx < subs.length) {
+      startEdit(idx);
+    }
+  }
+});
+
 // ── 渲染 ──
 let editingIdx = -1; // 当前正在编辑的字幕索引
 let editBackup = ''; // 编辑前备份原文字
@@ -472,7 +483,7 @@ function render() {
     const textHtml = (editingIdx === i)
       ? `<input type="text" class="sub-text-input" value="${esc(s.text||'')}" `
         + `onblur="saveEdit(${i}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">`
-      : `<span class="sub-text" onclick="startEdit(${i})">${esc(s.text||'')}</span><button class="edit-btn" onclick="startEdit(${i})" title="编辑 (E)">✏️</button>`;
+      : `<span class="sub-text" data-edit-idx="${i}">${esc(s.text||'')}</span><button class="edit-btn" data-edit-idx="${i}" title="编辑 (E)">✏️</button>`;
     return `<div class="subtitle-item ${cls}" data-idx="${i}"
       onmousedown="onMouseDown(event,${i})"
       onmousemove="onMouseMove(event,${i})"
@@ -797,7 +808,7 @@ document.addEventListener('keydown', (e) => {
       render();
       setTimeout(() => {
         const el = subList.querySelector('[data-idx="' + editingIdx + '"] .sub-text-input');
-        if (el) { el.focus(); el.select(); }
+        if (el) { el.focus(); const len = el.value.length; el.setSelectionRange(len, len); }
       }, 10);
     }
   }
