@@ -213,6 +213,9 @@
     .sub-text:hover { background: rgba(76,175,80,0.15); border-radius: 2px; }
     .sub-time { cursor: pointer; }
     .sub-time:hover { color: #4CAF50; }
+    .edit-btn { background: none; border: none; cursor: pointer; font-size: 12px; padding: 2px 4px; opacity: 0; transition: opacity 0.2s; line-height: 1; }
+    .subtitle-item:hover .edit-btn { opacity: 1; }
+    .edit-btn:hover { opacity: 1; transform: scale(1.2); }
     .drag-select-hint {
       position: fixed;
       pointer-events: none;
@@ -455,7 +458,7 @@ function render() {
     const textHtml = (editingIdx === i)
       ? `<input type="text" class="sub-text-input" value="${esc(s.text||'')}" `
         + `onblur="saveEdit(${i}, this.value)" onkeydown="if(event.key==='Enter')this.blur()">`
-      : `<span class="sub-text" onclick="startEdit(${i})">${esc(s.text||'')}</span>`;
+      : `<span class="sub-text" onclick="startEdit(${i})">${esc(s.text||'')}</span><button class="edit-btn" onclick="startEdit(${i})" title="编辑 (E)">✏️</button>`;
     return `<div class="subtitle-item ${cls}" data-idx="${i}"
       onmousedown="onMouseDown(event,${i})"
       onmousemove="onMouseMove(event,${i})"
@@ -768,6 +771,19 @@ document.addEventListener('keydown', (e) => {
     // 'S' key = 在播放头位置拆分当前字幕
     e.preventDefault();
     splitAtPlayhead();
+  }
+  else if (e.code === 'KeyE' && !e.ctrlKey && !e.metaKey) {
+    // 'E' key = 编辑当前字幕
+    e.preventDefault();
+    const i = curIdx;
+    if (i >= 0 && i < subs.length) {
+      editingIdx = i;
+      render();
+      setTimeout(() => {
+        const el = subList.querySelector('[data-idx="' + editingIdx + '"] .sub-text-input');
+        if (el) { el.focus(); el.select(); }
+      }, 10);
+    }
   }
   else if (e.code === 'Escape') {
     clearAll();

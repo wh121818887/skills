@@ -110,6 +110,9 @@ const html = `<!DOCTYPE html>
     .sub-num{font-size:11px;color:#444;min-width:24px;text-align:right;padding-top:1px}
     .sub-time{font-family:'Courier New',monospace;font-size:10px;color:#555;white-space:nowrap;min-width:80px;padding-top:2px;line-height:1.5;cursor:pointer}
     .sub-time:hover{color:#4CAF50}
+    .edit-btn{background:none;border:none;cursor:pointer;font-size:12px;padding:2px 4px;opacity:0;transition:opacity 0.2s;line-height:1}
+    .subtitle-item:hover .edit-btn{opacity:1}
+    .edit-btn:hover{opacity:1;transform:scale(1.2)}
     .sub-text{flex:1;word-break:break-all;line-height:1.6;cursor:text;padding:1px 3px;border-radius:2px}
     .sub-text:hover{background:rgba(76,175,80,0.15)}
     .subtitle-item.selected .sub-text{text-decoration:line-through;color:#f44336}
@@ -133,7 +136,7 @@ const html = `<!DOCTYPE html>
   <h1>🎬 字幕审核</h1>
   <span class="tag">红华管家 v3.1</span>
   <span class="tag new">点击字幕文字=编辑 ✍️</span>
-  <span class="tag new">S键=拆分字幕 ✂️</span>
+  <span class="tag new">E键/点击✏️=编辑 | S键=拆分</span>
   <span class="tag new">Shift+拖动=批量选中</span>
   <div class="file-input-wrap" style="margin-left:auto">
     <label for="videoInput">📹 视频</label><input type="file" id="videoInput" accept="video/*">
@@ -212,7 +215,7 @@ function render(){
     const cls=[selected.has(i)?'selected':'',curIdx===i?'current':'',aiSelected.has(i)?'ai-selected':''].filter(Boolean).join(' ');
     const textHtml=editingIdx===i
       ?'<input type="text" class="sub-text-input" value="'+esc(s.text||'')+'" onblur="saveEdit('+i+',this.value)" onkeydown="if(event.key===" + String.fromCharCode(39) + "Enter" + String.fromCharCode(39) + ")this.blur()">'
-      :'<span class="sub-text" onclick="startEdit('+i+')">'+esc(s.text||'')+'</span>';
+      :'<span class="sub-text" onclick="startEdit('+i+')">'+esc(s.text||'')+'</span><button class="edit-btn" onclick="startEdit('+i+')" title="编辑 (E)">✏️</button>';
     return'<div class="subtitle-item '+cls+'" data-idx="'+i+'" onmousedown="onMD(event,'+i+')" onmousemove="onMM(event,'+i+')" onmouseup="onMU(event,'+i+')" ondblclick="onDbl('+i+')"><span class="sub-num">'+(i+1)+'</span><span class="sub-time" onclick="jump('+i+')">'+fmt(s.start)+' → '+fmt(s.end)+'</span>'+textHtml+'</div>';
   }).join('');
   if(editingIdx>=0){
@@ -294,6 +297,7 @@ document.addEventListener('keydown',e=>{
   else if(e.code==='ArrowRight'){e.preventDefault();v.currentTime=Math.min(v.duration||0,v.currentTime+(e.shiftKey?5:1));}
   else if(e.code==='KeyA'&&!e.ctrlKey&&!e.metaKey){selectAll();}
   else if(e.code==='KeyS'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();splitAtPlayhead();}
+  else if(e.code==='KeyE'&&!e.ctrlKey&&!e.metaKey){e.preventDefault();const i=curIdx;if(i>=0&&i<subs.length){editingIdx=i;render();setTimeout(()=>{const el=subList.querySelector('[data-idx="'+editingIdx+'"] .sub-text-input');if(el){el.focus();el.select();}},10);}}
   else if(e.code==='Escape'){if(editingIdx>=0){editingIdx=-1;render();}else{clearAll();}}
 });
 speedSelect.addEventListener('change',()=>{v.playbackRate=parseFloat(speedSelect.value);});
@@ -306,4 +310,4 @@ render();
 fs.writeFileSync(outputFile, html);
 console.log(`✅ 已生成: ${outputFile}`);
 console.log(`📌 双击 ${outputFile} 在浏览器中打开`);
-console.log(`📌 点击文字=编辑 | S键=拆分 | Shift+点击=批量选中 | 双击=选中/取消`);
+console.log(`📌 点击✏️或E键=编辑 | S键=拆分 | Shift+点击=批量选中 | 双击=选中/取消`);
