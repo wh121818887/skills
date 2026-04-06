@@ -173,9 +173,18 @@ wt = model.transcribe_word_level_timing(
 - [ ] 验证字幕是否在画面内
 
 **校验方法**：
-1. 生成带字幕的视频
-2. 截帧检查字幕位置
-3. 用image工具分析截帧
+1. 生成字幕JSON（`subtitles_with_time.json`）
+2. 生成审核网页：`node scripts/generate_review.js subtitles_with_time.json`
+3. 浏览器打开review.html，加载视频，点击字幕跳转，双击选中要删除的片段
+4. 点击"复制删除列表"获取JSON格式的删除片段
+5. 用删除片段列表进行FFmpeg精确剪辑
+
+**审核网页功能**（`scripts/review.html` / `scripts/generate_review.js`）：
+- 点击字幕 → 跳转播放到该时间点
+- 双击字幕 → 选中/取消（红色删除线）
+- 全选/清空批量操作
+- 复制删除列表（自动合并相邻片段）
+- 实时显示删除总时长
 
 **字幕时间轴扩展（50ms buffer）**：校验时如果发现某段字幕开头/结尾有轻微不完整（像是被截断的），说明该字的时间轴偏紧。此时：
 - 把该字幕的start往前扩展50ms（吃掉气口）
