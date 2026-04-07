@@ -299,6 +299,11 @@ node /path/to/skills/video-production/scripts/generate_review.js \
 3. 点击"复制删除列表"获取删除JSON
 4. 用删除列表进行FFmpeg精确剪辑
 
+**⚠️ 铁律：审核用压缩版，制作用原始版**
+- 发给宝哥审核的视频可以是压缩版（方便传输，画质够审核即可）
+- 正式制作视频时必须用原始素材（raw/MOV原始文件）
+- 绝对不能用压缩版视频来做最终成品（压缩会损失画质）
+
 **Shift+拖动批量选中（借鉴videocut-skills核心创新）**：
 ```javascript
 // review.html 中的关键逻辑
